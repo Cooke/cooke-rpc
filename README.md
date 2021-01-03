@@ -101,7 +101,13 @@ const result = await sendJsonRpc(myService.add(1, 2), async (json: string) => {
 
 ### Usage from React
 
-Create RPC client and add to context:
+Install react hooks:
+
+```bash
+npm add cooke-rpc-react
+```
+
+Create RPC dispatcher and add to context:
 
 ```tsx
 import React from "react";
@@ -152,7 +158,7 @@ export const AddComponent = (props: { left: number; right: number }) => {
 };
 
 export const PiComp = () => {
-  // Instantly invokes the RPC, useful for data fetching
+  // Instantly invokes the RPC, useful for querying on component mount
   const { error, refetch, fetching, result } = useRpcFetch(myService.getPi);
   return <div>{result ?? "Fetching PI"}</div>;
 };
