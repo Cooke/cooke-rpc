@@ -112,7 +112,7 @@ function generateRpcTs(meta) {
       );
 
       stream.write(
-        `    return [{ id: Math.random().toString(), service: '${service.name}', proc: '${proc.name}'}, ...args];\n`
+        `    return { service: '${service.name}', proc: '${proc.name}', args: args };\n`
       );
 
       stream.write("  },\n");

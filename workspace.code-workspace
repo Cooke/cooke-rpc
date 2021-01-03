@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "node-tooling"
+		},
+		{
+			"path": "js-client"
+		},
+		{
+			"path": "react-client"
+		}
+	],
+	"settings": {}
+}
