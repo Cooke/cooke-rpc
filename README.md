@@ -68,7 +68,7 @@ npm add -D cooke-rpc-tooling
 
 Generate types and procedures:
 ```
-cooke-rpc generate https://localhost:5000/rpc ./src/generated/rpc.ts
+cooke-rpc generate https://localhost:5001/rpc ./src/generated/rpc.ts
 ```
 
 Usage:
@@ -76,7 +76,7 @@ Usage:
 import { dispatchRpc } from "cooke-rpc";
 import { myService } from "./generated/rpc";
 
-const result = await dispatchRpc(myService.add(1, 1));
+const result = await dispatchRpc("https://localhost:5001/rpc", myService.add(1, 1));
 ```
 
 ### Usage from React
