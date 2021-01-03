@@ -89,7 +89,9 @@ import { render } from 'react-dom';
 import { RpcClientProvider, createClient } from 'cooke-rpc-react';
 
 function App() {
-  const rpcClient = createClient({ url: "https://localhost:5001/rpc" });
+  const [rpcClient] = useState(() =>
+    createRpcClient({ url: "https://localhost:5001/rpc" })
+  );
   return (
     <RpcClientProvider client={rpcClient}>
       <div>
