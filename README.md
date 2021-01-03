@@ -1,12 +1,12 @@
-# Cooke RPC (Remote Procedure Call)
-A set of libraries and tools for easy procedure implementation on .NET (Core) and consumption from TypeScript. 
+# Cooke RPC
+A set of libraries and tools for easy RPC (Remote Procedure Call) implementation on .NET (Core) and consumption from JS and TypeScript. 
 
 ## Key features
 - Code first (schema generated)
 - Generated schema (allows generating clients)
-- Polymorphic (de)serialization (JSON via System.Text.Json or MessagePack)
+- Polymorphic (de)serialization via JSON (System.Text.Json) or MessagePack
 
-## Alternatives and comparison
+## Alternative techniques and comparisons
 Some relevant alternative technologies with potentially main drawbacks compared to Cooke RPC:
 
 - GraphQL with [Hot Chocolate](https://github.com/ChilliCream/hotchocolate) and [Apollo Client](https://github.com/apollographql/apollo-client)
