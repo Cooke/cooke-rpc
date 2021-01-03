@@ -1,0 +1,13 @@
+{
+  "name": "cooke-rpc-tooling",
+  "version": "1.0.0",
+  "description": "Tooling for consuming Cooke RPC endpoints",
+  "main": "index.js",
+  "repository": "https://github.com/Cooke/cooke-rpc",
+  "author": "Henrik Cooke",
+  "license": "MIT",
+  "private": false,
+  "bin": {
+    "cooke-rpc": "index.js"
+  }
+}
