@@ -22,12 +22,12 @@ Some relevant alternative technologies with potentially main drawbacks compared 
 ## Backend usage with ASP.NET Core
 
 Install nuget package:
-```
+```bash
 dotnet add package CookeRpc.AspNetCore
 ```
 
 Add required services:
-```
+```c#
 protected override void ConfigureServices(IServiceCollection services)
 {
     services.AddCookeRpc();
@@ -35,7 +35,7 @@ protected override void ConfigureServices(IServiceCollection services)
 ```
 
 Plugin middleware (defaults to path "/rpc"):
-```
+```c#
 protected override void Configure(IApplicationBuilder app, IHostingEnvironment env)
 {
     app.UseCookeRpc();
@@ -43,7 +43,7 @@ protected override void Configure(IApplicationBuilder app, IHostingEnvironment e
 ```
 
 Implement service:
-```
+```c#
 [RpcService]
 [Authorize] // If an authenticated user is required
 public class MyService
@@ -61,18 +61,18 @@ public class MyService
 ## Front-end usage with TypeScript
 
 Install npm packages:
-```
+```bash
 npm add cooke-rpc
 npm add -D cooke-rpc-tooling
 ```
 
 Generate types and procedures:
-```
+```bash
 cooke-rpc generate https://localhost:5001/rpc ./src/generated/rpc.ts
 ```
 
 Usage:
-```
+```typescript
 import { dispatchRpc } from "cooke-rpc";
 import { myService } from "./generated/rpc";
 
@@ -82,7 +82,7 @@ const result = await dispatchRpc("https://localhost:5001/rpc", myService.add(1, 
 ### Usage from React
 
 Create RPC client and add to context:
-```
+```typescript
 import React from 'react';
 import { render } from 'react-dom';
 
@@ -104,7 +104,7 @@ render(<App />, document.getElementById('root'));
 ```
 
 Use RPC:
-```
+```typescript
 import { useRpc, useRpcFetch } from "cooke-rpc-react";
 import { myService } from "./generated/rpc";
 
@@ -114,7 +114,8 @@ export const AddComponent = (props: { left: number, right: number} ) => {
 }
 
 export const PiComp = () => {
-  const { error, refetch, fetching, result } = useRpcFetch(myService.getPi, 1, 1);
+  // Instantly invokes the RPC, useful for data fetching
+  const { error, refetch, fetching, result } = useRpcFetch(myService.getPi);
   return <div>{result ?? "Fetching PI"}</div>
 }
 ```
