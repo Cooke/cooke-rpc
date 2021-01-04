@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net5.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <Title>Cooke RPC for ASP.NET Core</Title>
+        <Authors>Henrik Cooke</Authors>
+        <Description>Easy opiniated RPC between .NET and JS clients. </Description>
+        <Copyright>Henrik Cooke</Copyright>
+        <PackageProjectUrl>https://github.com/cooke/cooke-rpc</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/Cooke/cooke-rpc/blob/main/LICENSE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/Cooke/cooke-rpc.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>RPC, API</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+</Project>

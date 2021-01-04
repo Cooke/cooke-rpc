@@ -1,3 +1,6 @@
 dist/
 node_modules
 node-tooling/yarn-error.log
+.idea/
+bin/
+obj/
