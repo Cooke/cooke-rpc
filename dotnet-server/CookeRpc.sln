@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CookeRpc.AspNetCore", "CookeRpc.AspNetCore\CookeRpc.AspNetCore.csproj", "{F21F3B81-DF9F-434C-BCC6-B29E3C69DD2E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CookeRpc.Tests", "CookeRpc.Tests\CookeRpc.Tests.csproj", "{5EBA5D39-DA57-4DA4-A9C9-B97722228270}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{F21F3B81-DF9F-434C-BCC6-B29E3C69DD2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F21F3B81-DF9F-434C-BCC6-B29E3C69DD2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F21F3B81-DF9F-434C-BCC6-B29E3C69DD2E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5EBA5D39-DA57-4DA4-A9C9-B97722228270}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5EBA5D39-DA57-4DA4-A9C9-B97722228270}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5EBA5D39-DA57-4DA4-A9C9-B97722228270}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5EBA5D39-DA57-4DA4-A9C9-B97722228270}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

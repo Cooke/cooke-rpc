@@ -4,3 +4,5 @@ node-tooling/yarn-error.log
 .idea/
 bin/
 obj/
+.vs/
+*.user
