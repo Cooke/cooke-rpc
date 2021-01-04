@@ -17,7 +17,7 @@ namespace CookeRpc.AspNetCore
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, string path = "/rpc")
         {
             var controllerTypes = Assembly.GetCallingAssembly().GetTypes()
-                .Where(x => x.GetCustomAttribute<RpcControllerAttribute>() != null);
+                .Where(x => x.GetCustomAttribute<RpcServiceAttribute>() != null);
 
             var model = new RpcModel(new RpcModelOptions());
             foreach (var controllerType in controllerTypes)

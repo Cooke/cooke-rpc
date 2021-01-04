@@ -3,7 +3,7 @@ using System;
 namespace CookeRpc.AspNetCore
 {
     [AttributeUsage(AttributeTargets.Class)]
-    public class RpcControllerAttribute : Attribute
+    public class RpcServiceAttribute : Attribute
     {
     }
 

@@ -8,11 +8,11 @@ using CookeRpc.AspNetCore.Core;
 
 namespace CookeRpc.AspNetCore.JsonSerialization
 {
-    public class TypedObjectConverter<T> : JsonConverter<T>
+    public class TypedObjectJsonConverter<T> : JsonConverter<T>
     {
         private readonly ITypeBinder _typeBinder;
 
-        public TypedObjectConverter(ITypeBinder typeBinder)
+        public TypedObjectJsonConverter(ITypeBinder typeBinder)
         {
             _typeBinder = typeBinder;
         }
@@ -122,7 +122,7 @@ namespace CookeRpc.AspNetCore.JsonSerialization
         public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options)
         {
             return (JsonConverter?) Activator.CreateInstance(
-                typeof(TypedObjectConverter<>).MakeGenericType(typeToConvert), _typeBinder);
+                typeof(TypedObjectJsonConverter<>).MakeGenericType(typeToConvert), _typeBinder);
         }
     }
 }

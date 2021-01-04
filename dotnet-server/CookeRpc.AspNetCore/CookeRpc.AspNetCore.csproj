@@ -9,10 +9,12 @@
         <Description>Easy opiniated RPC between .NET and JS clients. </Description>
         <Copyright>Henrik Cooke</Copyright>
         <PackageProjectUrl>https://github.com/cooke/cooke-rpc</PackageProjectUrl>
-        <PackageLicenseUrl>https://github.com/Cooke/cooke-rpc/blob/main/LICENSE</PackageLicenseUrl>
+        <PackageLicense>https://github.com/Cooke/cooke-rpc/blob/main/LICENSE</PackageLicense>
         <RepositoryUrl>https://github.com/Cooke/cooke-rpc.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageTags>RPC, API</PackageTags>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageVersion>1.0.1</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>

@@ -64,44 +64,15 @@ namespace CookeRpc.AspNetCore
 
             if (context.Request.Path.Equals("/rpc/introspection"))
             {
-                await context.Response.WriteAsJsonAsync(new
-                {
-                    types = _model.TypesDefinitions.Select(x => (object) (x switch
-                    {
-                        RpcEnumDefinition e => new
-                        {
-                            Type = "enum",
-                            x.Name,
-                            members = e.Members.Select(m => new {name = m.Name, value = m.Value})
-                        },
-                        RpcUnionDefinition union => new {Type = "union", x.Name, types = GetMemberTypes(union.Types)},
-                        RpcContractDefinition contract => new
-                        {
-                            Type = "type",
-                            x.Name,
-                            properties =
-                                contract.Properties.Select(p =>
-                                    new {p.Name, Type = GetIntrospectionType(p.Type), optiona = (bool?) (p.IsOptional ? true : null)}),
-                            extenders = contract.Extenders.Any() ? GetMemberTypes(contract.Extenders) : null
-                        },
-                        _ => throw new ArgumentOutOfRangeException(nameof(x))
-                    })),
-                    services = _model.Services.Select(x => new
-                    {
-                        x.Name,
-                        procedures = x.Procedures.Select(p => new
-                        {
-                            p.Name,
-                            returnType = GetIntrospectionType(p.ReturnType),
-                            parameters = p.Parameters.Select(pa =>
-                                new {pa.Name, type = GetIntrospectionType(pa.Type)})
-                        })
-                    })
-                }, _introspectionSerializerOptions);
-
+                await ProcessIntrospectionRequest(context);
                 return;
             }
 
+            await ProcessRpcRequest(context);
+        }
+
+        private async Task ProcessRpcRequest(HttpContext context)
+        {
             // Read everything
             ReadResult readResult;
             do
@@ -122,10 +93,10 @@ namespace CookeRpc.AspNetCore
             }
 
             var rpcContext = new RpcContext(context.RequestServices, context.RequestAborted, context.User,
-                new ReadOnlyDictionary<object, object?>(
-                    new Dictionary<object, object?> {{Constants.HttpContextKey, context}}), invocation);
+                new ReadOnlyDictionary<object, object?>(new Dictionary<object, object?> {{Constants.HttpContextKey, context}}),
+                invocation);
 
-            var response = await Invoke(rpcContext, invocation);
+            var response = await Dispatch(rpcContext, invocation);
 
             await context.Request.BodyReader.CompleteAsync();
 
@@ -133,25 +104,62 @@ namespace CookeRpc.AspNetCore
             _rpcSerializer.Serialize(response, pipeWriter);
             await pipeWriter.FlushAsync();
             await pipeWriter.CompleteAsync();
+        }
+
+        private async Task ProcessIntrospectionRequest(HttpContext context)
+        {
+            static object GetIntrospectionType(Model.Types.RpcType t)
+            {
+                return new
+                {
+                    name = t.Name,
+                    args = t is GenericType genericType ? genericType.TypeArguments.Select(GetIntrospectionType) : null
+                };
+            }
 
             IEnumerable<object> GetMemberTypes(IReadOnlyCollection<Model.Types.RpcType> memberTypes)
             {
                 return memberTypes.Select(GetIntrospectionType);
             }
 
-            static object GetIntrospectionType(Model.Types.RpcType t)
+            await context.Response.WriteAsJsonAsync(new
             {
-                return new
+                types = _model.TypesDefinitions.Select(x => (object) (x switch
                 {
-                    name = t.Name,
-                    args = t is GenericType genericType
-                        ? genericType.TypeArguments.Select(GetIntrospectionType)
-                        : null
-                };
-            }
+                    RpcEnumDefinition e => new
+                    {
+                        Type = "enum", x.Name, members = e.Members.Select(m => new {name = m.Name, value = m.Value})
+                    },
+                    RpcUnionDefinition union => new {Type = "union", x.Name, types = GetMemberTypes(union.Types)},
+                    RpcContractDefinition contract => new
+                    {
+                        Type = "type",
+                        x.Name,
+                        properties =
+                            contract.Properties.Select(p => new
+                            {
+                                p.Name,
+                                Type = GetIntrospectionType(p.Type),
+                                optiona = (bool?) (p.IsOptional ? true : null)
+                            }),
+                        extenders = contract.Extenders.Any() ? GetMemberTypes(contract.Extenders) : null
+                    },
+                    _ => throw new ArgumentOutOfRangeException(nameof(x))
+                })),
+                services = _model.Services.Select(x => new
+                {
+                    x.Name,
+                    procedures = x.Procedures.Select(p => new
+                    {
+                        p.Name,
+                        returnType = GetIntrospectionType(p.ReturnType),
+                        parameters = p.Parameters.Select(pa => new {pa.Name, type = GetIntrospectionType(pa.Type)})
+                    })
+                })
+            }, _introspectionSerializerOptions);
         }
 
-        private async Task<RpcResponse> Invoke(RpcContext rpcContext, RpcInvocation invocation)
+        private async Task<RpcResponse> Dispatch(RpcContext rpcContext, RpcInvocation invocation)
         {
             var logger = rpcContext.ServiceProvider.GetService<ILogger<RpcHttpMiddleware>>();
 
@@ -185,11 +193,5 @@ namespace CookeRpc.AspNetCore
                 return new RpcError(invocation.Id, code, message);
             }
         }
-    }
-
-    public static class RpcContextExtensions
-    {
-        public static HttpContext GetHttpContext(this RpcContext context) =>
-            (HttpContext) (context.Items[Constants.HttpContextKey] ?? throw new InvalidOperationException());
     }
 }

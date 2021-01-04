@@ -4,8 +4,9 @@ A set of libraries and tools for easy RPC (Remote Procedure Call) implementation
 
 ## Key features
 
-- Code first (schema generated)
-- Generated schema (allows generating clients)
+- Code first
+- Generated schema 
+- Pluggable architecture (enabling custom serialization, transport channels and protocols)
 - Polymorphic (de)serialization via JSON (System.Text.Json) or MessagePack
 
 ## Alternative techniques and comparisons
@@ -35,7 +36,7 @@ Add required services:
 ```c#
 protected override void ConfigureServices(IServiceCollection services)
 {
-    services.AddCookeRpc();
+    services.AddRpc();
 }
 ```
 
@@ -44,7 +45,7 @@ Plugin middleware (defaults to path "/rpc"):
 ```c#
 protected override void Configure(IApplicationBuilder app, IHostingEnvironment env)
 {
-    app.UseCookeRpc();
+    app.UseRpc();
 }
 ```
 
@@ -61,6 +62,12 @@ public class MyService
 
     public async Task<int> Add(int left, int right) {
         return left + right;
+    }
+
+    // Context parameter is set by library and is not exposed externally 
+    [Authorize("OperationAccessPolicy")]
+    public async Task<OutputType?> Operation(RpcContext context, InputType input) {
+        return null;
     }
 }
 ```
