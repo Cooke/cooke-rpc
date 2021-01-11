@@ -15,10 +15,10 @@
     "@types/prop-types" "*"
     csstype "^3.0.2"
 
-cooke-rpc@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/cooke-rpc/-/cooke-rpc-1.0.1.tgz#5d3212041f8ddec8db9dcbc921c202aa4ac871ec"
-  integrity sha512-7tYqGCkn7CysVcn3YmGARCG9uER1j/JKntDW8ewqC3b6WC2RPhvKLgphNfxg7xSNdStye97qaBI4KGwXoYduxg==
+cooke-rpc@^1.0.3:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/cooke-rpc/-/cooke-rpc-1.0.3.tgz#44e9b90199433961daea9baa88883e7d828ec75a"
+  integrity sha512-9xcDIWrUvJOD+PQd7rhY9CJlEYJ56A8vSDcqxs9IqEQlvZzdKQFNyaiLr2rrmELx5/2SY3QDgVGIiqR4bucUcA==
 
 csstype@^3.0.2:
   version "3.0.5"
