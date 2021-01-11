@@ -60,6 +60,15 @@ namespace CookeRpc.Tests
         }
 
         [Fact]
+        public void DeserializeWithConstructor()
+        {
+            const string json = "{ \"$ModelWithConstructor\": { \"value\": \"Hello\", \"extra\": 123 } }";
+            var obj = JsonSerializer.Deserialize<object>(json, _options);
+            var model = Assert.IsType<ModelWithConstructor>(obj);
+            Assert.Equal("Hello", model.Value);
+        }
+
+        [Fact]
         public void DeserializeWithoutTypeInfo()
         {
             const string json = "{\"Radius\":3}";
@@ -112,6 +121,8 @@ namespace CookeRpc.Tests
         {
             public int Length { get; set; }
         }
+
+        public record ModelWithConstructor(string Value);
 
         public class TestTypeBinder : ITypeBinder
         {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -17,6 +18,8 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             _typeBinder = typeBinder;
         }
 
+        // Goal is to replace this "temporary" functionality with more robust support for polymorphic deserialization
+        // which seems to be on the road map for the .Net team
         public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             reader.Read();
@@ -41,9 +44,14 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                 reader.Read(); // Move into object
             }
 
-            // TODO potentially improve performance by generating code instead of using reflection 
-            var obj = (T) (Activator.CreateInstance(clrType) ?? throw new InvalidOperationException());
+
+            var ctor = clrType.GetConstructors().First();
+            var ctorParameters = ctor.GetParameters()
+                .ToDictionary(x => x.Name ?? throw new NotSupportedException("Unnamed parameters are not supported"),
+                    StringComparer.OrdinalIgnoreCase);
             var props = clrType.GetProperties().ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+
+            var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
             while (reader.TokenType != JsonTokenType.EndObject)
             {
@@ -51,14 +59,29 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                 reader.Read();
                 if (props.TryGetValue(propertyName, out var propertyInfo) && propertyInfo.CanWrite)
                 {
-                    propertyInfo.SetValue(obj,
-                        JsonSerializer.Deserialize(ref reader, propertyInfo.PropertyType, options));
+                    map.Add(propertyName, JsonSerializer.Deserialize(ref reader, propertyInfo.PropertyType, options));
+                }
+                else if (ctorParameters.TryGetValue(propertyName, out var ctorParameterInfo))
+                {
+                    map.Add(propertyName,
+                        JsonSerializer.Deserialize(ref reader, ctorParameterInfo.ParameterType, options));
                 }
 
                 reader.Read();
             }
-
+            
             reader.Read();
+
+            var ctorArgs = ctorParameters.Select(p => map.GetValueOrDefault(p.Key)).ToArray();
+            var obj = (T) (Activator.CreateInstance(clrType, ctorArgs) ?? throw new InvalidOperationException());
+
+            foreach (var prop in props)
+            {
+                if (map.TryGetValue(prop.Key, out var propValue))
+                {
+                    prop.Value.SetValue(obj, propValue);
+                }
+            }
 
             return obj;
         }
