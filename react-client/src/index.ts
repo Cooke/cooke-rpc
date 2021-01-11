@@ -59,13 +59,6 @@ export function useRpc<TRpc extends (...args: any[]) => RpcInvocation<any>>(
         setResult(returnValue);
         return returnValue;
       } catch (error) {
-        // if (console?.error) {
-        //   console.error(
-        //     "Failed to invoke RPC: ",
-        //     "code" in error ? error.code : error?.message
-        //   );
-        // }
-
         const rpcError =
           error instanceof RpcError
             ? error
@@ -91,6 +84,7 @@ export function useRpc<TRpc extends (...args: any[]) => RpcInvocation<any>>(
     invoke,
     // Useful for optimistic updates
     setResult,
+    setError
   };
 }
 
