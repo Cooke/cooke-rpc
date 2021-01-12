@@ -24,9 +24,9 @@ namespace CookeRpc.AspNetCore.JsonSerialization
         {
             reader.Read();
 
-            var potentialTypeString = reader.GetString() ?? throw new JsonException("Property name missing");
+            var potentialTypeString = reader.TokenType == JsonTokenType.PropertyName ? reader.GetString() : null;
             var clrType = typeToConvert;
-            if (potentialTypeString.StartsWith("$"))
+            if (potentialTypeString?.StartsWith("$") == true)
             {
                 clrType = _typeBinder.ResolveType(potentialTypeString.Substring(1), typeToConvert);
                 reader.Read(); // property value (null or object start)

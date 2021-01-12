@@ -57,7 +57,7 @@ function generateRpcTs(meta) {
   // Register all types that participate in a union since then they need the $type descriminator
   const inUnion = new Set();
   for (const type of meta.types) {
-    if (type.type === "union") {
+    if (type.category === "union") {
       for (const memberType of type.types) {
         inUnion.add(memberType.name);
       }
@@ -65,11 +65,11 @@ function generateRpcTs(meta) {
   }
 
   for (const type of meta.types) {
-    if (type.type === "union") {
+    if (type.category === "union") {
       stream.write(`export type ${type.name} = `);
       stream.write(type.types.map(formatType).join(" | "));
       stream.write(";\n\n");
-    } else if (type.type === "type") {
+    } else if (type.category === "complex") {
       stream.write(`export type ${type.name} = `);
       stream.write("{\n");
       if (
@@ -81,7 +81,14 @@ function generateRpcTs(meta) {
 
       stream.write(
         type.properties
-          .map((p) => `  ${p.name}: ${formatType(p.type)};`)
+          .map(
+            (p) =>
+              `  ${p.name}${
+                p.type.category === "generic" && p.type.name === "optional"
+                  ? "?"
+                  : ""
+              }: ${formatType(p.type)};`
+          )
           .join("\n")
       );
 
@@ -92,12 +99,16 @@ function generateRpcTs(meta) {
       }
 
       stream.write(";\n\n");
-    } else if (type.type === "enum") {
+    } else if (type.category === "enum") {
       stream.write(`export enum ${type.name} {\n`);
       stream.write(
         type.members.map((x) => `  ${x.name} = "${x.name}"`).join(",\n")
       );
       stream.write("\n}\n\n");
+    } else if (type.category === "scalar") {
+      stream.write(
+        `export type ${type.name} = ${formatType(type.implementationType)};\n\n`
+      );
     }
   }
 
@@ -133,13 +144,27 @@ function toCamelCase(str) {
 }
 
 function formatType(type) {
-  if (type.name === "array") {
-    return `Array<${type.args.map(formatType).join(",")}>`;
-  }
+  switch (type.category) {
+    case "union":
+      return type.types.map(formatType).join(" | ");
 
-  if (type.args) {
-    return `${type.name}<${type.args.map(formatType).join(",")}>`;
-  }
+    case "native":
+      return type.name;
 
-  return type.name;
+    case "generic":
+      switch (type.name) {
+        case "array":
+          return `Array<${type.typeArguments.map(formatType).join(",")}>`;
+        case "optional":
+          return `${type.typeArguments.map(formatType).join(",")} | undefined`;
+
+        default:
+          return `${type.name}<${type.typeArguments
+            .map(formatType)
+            .join(",")}>`;
+      }
+
+    default:
+      return type.name;
+  }
 }

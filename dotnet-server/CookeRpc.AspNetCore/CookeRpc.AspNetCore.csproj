@@ -14,11 +14,15 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>RPC, API</PackageTags>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <PackageVersion>1.0.2</PackageVersion>
+        <PackageVersion>1.1.0</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Namotion.Reflection" Version="1.0.15" />
     </ItemGroup>
 
 </Project>

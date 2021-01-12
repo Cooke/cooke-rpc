@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace CookeRpc.AspNetCore.Model.TypeDefinitions
 {
-    public class RpcContractDefinition : RpcTypeDefinition
+    public class RpcComplexDefinition : RpcTypeDefinition
     {
-        public RpcContractDefinition(string name,
+        public RpcComplexDefinition(string name,
             Type clrType,
             IReadOnlyCollection<RpcPropertyDefinition> properties,
             IReadOnlyCollection<Types.RpcType> extenders) : base(name, clrType)
@@ -15,6 +15,7 @@ namespace CookeRpc.AspNetCore.Model.TypeDefinitions
         }
 
         public IReadOnlyCollection<RpcPropertyDefinition> Properties { get; }
+        
         public IReadOnlyCollection<Types.RpcType> Extenders { get; }
     }
 }

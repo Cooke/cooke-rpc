@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using CookeRpc.AspNetCore.JsonSerialization;
@@ -16,16 +17,28 @@ namespace CookeRpc.AspNetCore
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, string path = "/rpc")
         {
-            var controllerTypes = Assembly.GetCallingAssembly().GetTypes()
-                .Where(x => x.GetCustomAttribute<RpcServiceAttribute>() != null);
-
             var model = new RpcModel(new RpcModelOptions());
+            model.AddRpcServicesByAttribute();
+            return UseRpc(app, model, path);
+        }
+
+        public static RpcModel AddRpcServicesByAttribute(this RpcModel model)
+        {
+            return model.AddRpcServicesByAttribute<RpcServiceAttribute>();
+        }
+
+        public static RpcModel AddRpcServicesByAttribute<TAttribute>(this RpcModel model) where TAttribute : Attribute
+        {
+            var controllerTypes = Assembly.GetCallingAssembly().GetTypes()
+                .Concat(Assembly.GetEntryAssembly()?.GetTypes() ?? ArraySegment<Type>.Empty)
+                .Where(x => x.GetCustomAttribute<TAttribute>() != null);
+
             foreach (var controllerType in controllerTypes)
             {
                 model.AddService(controllerType);
             }
 
-            return UseRpc(app, model, path);
+            return model;
         }
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, RpcModel model, string path = "/rpc")

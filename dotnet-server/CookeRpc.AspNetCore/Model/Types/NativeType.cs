@@ -9,8 +9,9 @@
         public static NativeType Void { get; } = new("void");
         public static NativeType Map { get; } = new("map");
         public static NativeType Array { get; } = new("array");
+        public static NativeType Optional { get; } = new("optional");
 
-        private NativeType(string name)
+        public NativeType(string name)
         {
             Name = name;
         }

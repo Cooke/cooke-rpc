@@ -19,7 +19,13 @@ namespace CookeRpc.Tests
         {
             _testOutputHelper = testOutputHelper;
 
-            _options = new JsonSerializerOptions {Converters = {new TypedObjectConverterFactory(new TestTypeBinder())}};
+            _options = new JsonSerializerOptions
+            {
+                Converters =
+                {
+                    new OptionalRpcJsonConverterFactory(), new TypedObjectConverterFactory(new TestTypeBinder())
+                }
+            };
         }
 
         [Fact]
@@ -57,6 +63,33 @@ namespace CookeRpc.Tests
             Assert.Equal("Pink", decoration.Color);
             var decorationFruit = Assert.IsType<Apple>(decoration.DecorationFruit);
             Assert.Equal(33, decorationFruit.Radius);
+        }
+
+        [Fact]
+        public void DeserializeEmptyOptional()
+        {
+            const string json = "{ }";
+            var obj = JsonSerializer.Deserialize<ModelWithOptional>(json, _options)!;
+            Assert.False(obj.OptionalString.HasValue);
+            Assert.False(obj.OptionalNullString.HasValue);
+        }
+
+        [Fact]
+        public void DeserializeWithSetOptional()
+        {
+            const string json = "{ \"optionalNullString\": null, \"optionalString\": \"Hello\" }";
+            var obj = JsonSerializer.Deserialize<ModelWithOptional>(json, _options)!;
+            Assert.True(obj.OptionalString.HasValue);
+            Assert.True(obj.OptionalNullString.HasValue);
+            Assert.Null(obj.OptionalNullString.Value);
+            Assert.Equal("Hello", obj.OptionalString.Value);
+        }
+
+        private class ModelWithOptional
+        {
+            public Optional<string?> OptionalNullString { get; set; }
+
+            public Optional<string> OptionalString { get; set; }
         }
 
         [Fact]

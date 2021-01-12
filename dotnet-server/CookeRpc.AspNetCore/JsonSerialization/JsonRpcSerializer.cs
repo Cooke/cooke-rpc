@@ -15,13 +15,15 @@ namespace CookeRpc.AspNetCore.JsonSerialization
 
         public JsonRpcSerializer(ITypeBinder typeBinder)
         {
-            _protocolSerializerOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
+            _protocolSerializerOptions = new JsonSerializerOptions {PropertyNamingPolicy = JsonNamingPolicy.CamelCase};
             _payloadSerializerOptions = new JsonSerializerOptions
             {
-                Converters = {new TypedObjectConverterFactory(typeBinder), new JsonStringEnumConverter()},
+                Converters =
+                {
+                    new OptionalRpcJsonConverterFactory(),
+                    new TypedObjectConverterFactory(typeBinder),
+                    new JsonStringEnumConverter(),
+                },
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
         }

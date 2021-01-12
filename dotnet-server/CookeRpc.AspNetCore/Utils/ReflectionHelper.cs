@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Namotion.Reflection;
 
 namespace CookeRpc.AspNetCore.Utils
 {
@@ -38,10 +39,10 @@ namespace CookeRpc.AspNetCore.Utils
                 .SelectMany(x => x.GetTypes());
         }
 
-        public static Type? GetGenericTypeOfDefinition(Type type, Type interfaceDefinition)
+        public static Type? GetGenericTypeOfDefinition(Type type, Type definition)
         {
             return type.GetInterfaces().Concat(new[] {type}).FirstOrDefault(x =>
-                x.IsConstructedGenericType && x.GetGenericTypeDefinition() == interfaceDefinition);
+                x.IsConstructedGenericType && x.GetGenericTypeDefinition() == definition);
         }
 
         public static IEnumerable<TProperty> GetAllStaticProperties<TProperty>(Type t)
@@ -54,19 +55,37 @@ namespace CookeRpc.AspNetCore.Utils
 
         public static bool IsNullable(MemberInfo memberInfo)
         {
-            var nullableAttribute =
-                memberInfo.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == "NullableAttribute");
-            if (nullableAttribute != null && nullableAttribute.ConstructorArguments.First().Value!.Equals((byte) 2))
+            return memberInfo.ToContextualMember().Nullability == Nullability.Nullable;
+            //
+            // var nullableAttribute =
+            //     memberInfo.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == "NullableAttribute");
+            // if (nullableAttribute != null && nullableAttribute.ConstructorArguments.First().Value!.Equals((byte) 2))
+            // {
+            //     return true;
+            // }
+            //
+            // return IsNullable(memberInfo switch
+            // {
+            //     PropertyInfo propertyInfo => propertyInfo.PropertyType,
+            //     FieldInfo fieldInfo => fieldInfo.FieldType,
+            //     _ => throw new NotSupportedException()
+            // });
+        }
+
+        public static bool IsNullableReturn(MethodInfo methodInfo)
+        {
+            var returnInfo = methodInfo.ReturnParameter.ToContextualParameter();
+            if (returnInfo.Nullability == Nullability.Nullable)
             {
                 return true;
             }
 
-            return IsNullable(memberInfo switch
+            if (GetGenericTypeOfDefinition(methodInfo.ReturnType, typeof(Task<>)) != null)
             {
-                PropertyInfo propertyInfo => propertyInfo.PropertyType,
-                FieldInfo fieldInfo => fieldInfo.FieldType,
-                _ => throw new NotSupportedException()
-            });
+                return returnInfo.GenericArguments.First().Nullability == Nullability.Nullable;
+            }
+
+            return false;
         }
 
         private static bool IsNullable(Type type)

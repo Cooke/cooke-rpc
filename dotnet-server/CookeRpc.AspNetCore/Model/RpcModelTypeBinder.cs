@@ -103,7 +103,7 @@ namespace CookeRpc.AspNetCore.Model
             return new JsonRpcTypeRef(name, args);
         }
 
-        private string SerializeType(Types.RpcType rpcType)
+        private string SerializeType(RpcType rpcType)
         {
             switch (rpcType)
             {

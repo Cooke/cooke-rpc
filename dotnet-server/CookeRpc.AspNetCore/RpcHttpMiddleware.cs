@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
@@ -93,8 +94,8 @@ namespace CookeRpc.AspNetCore
             }
 
             var rpcContext = new RpcContext(context.RequestServices, context.RequestAborted, context.User,
-                new ReadOnlyDictionary<object, object?>(new Dictionary<object, object?> {{Constants.HttpContextKey, context}}),
-                invocation);
+                new ReadOnlyDictionary<object, object?>(
+                    new Dictionary<object, object?> {{Constants.HttpContextKey, context}}), invocation);
 
             var response = await Dispatch(rpcContext, invocation);
 
@@ -108,18 +109,23 @@ namespace CookeRpc.AspNetCore
 
         private async Task ProcessIntrospectionRequest(HttpContext context)
         {
-            static object GetIntrospectionType(Model.Types.RpcType t)
+            static object GetIntrospectionType(RpcType t)
             {
-                return new
+                return t switch
                 {
-                    name = t.Name,
-                    args = t is GenericType genericType ? genericType.TypeArguments.Select(GetIntrospectionType) : null
+                    UnionType unionType => new
+                    {
+                        category = "union", types = unionType.Types.Select(GetIntrospectionType)
+                    },
+                    NativeType nativeType => new {category = "native", name = nativeType.Name},
+                    GenericType genericType => new
+                    {
+                        name = genericType.Name,
+                        category = "generic",
+                        typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
+                    },
+                    _ => new {category = "custom", name = t.Name}
                 };
-            }
-
-            IEnumerable<object> GetMemberTypes(IReadOnlyCollection<Model.Types.RpcType> memberTypes)
-            {
-                return memberTypes.Select(GetIntrospectionType);
             }
 
             await context.Response.WriteAsJsonAsync(new
@@ -128,21 +134,32 @@ namespace CookeRpc.AspNetCore
                 {
                     RpcEnumDefinition e => new
                     {
-                        Type = "enum", x.Name, members = e.Members.Select(m => new {name = m.Name, value = m.Value})
+                        category = "enum",
+                        x.Name,
+                        members = e.Members.Select(m => new {name = m.Name, value = m.Value})
                     },
-                    RpcUnionDefinition union => new {Type = "union", x.Name, types = GetMemberTypes(union.Types)},
-                    RpcContractDefinition contract => new
+                    RpcUnionDefinition union => new
                     {
-                        Type = "type",
+                        category = "union", x.Name, types = union.Types.Select(GetIntrospectionType)
+                    },
+                    RpcComplexDefinition complex => new
+                    {
+                        category = "complex",
                         x.Name,
                         properties =
-                            contract.Properties.Select(p => new
+                            complex.Properties.Select(p => new
                             {
                                 p.Name,
                                 Type = GetIntrospectionType(p.Type),
                                 optiona = (bool?) (p.IsOptional ? true : null)
                             }),
-                        extenders = contract.Extenders.Any() ? GetMemberTypes(contract.Extenders) : null
+                        extenders = complex.Extenders.Any() ? complex.Extenders.Select(GetIntrospectionType) : null
+                    },
+                    RpcScalarDefinition scalar => new
+                    {
+                        category = "scalar",
+                        x.Name,
+                        ImplementationType = GetIntrospectionType(scalar.ImplementationType)
                     },
                     _ => throw new ArgumentOutOfRangeException(nameof(x))
                 })),
@@ -153,7 +170,8 @@ namespace CookeRpc.AspNetCore
                     {
                         p.Name,
                         returnType = GetIntrospectionType(p.ReturnType),
-                        parameters = p.Parameters.Select(pa => new {pa.Name, type = GetIntrospectionType(pa.Type)})
+                        parameters = p.Parameters.Select(pa =>
+                            new {pa.Name, type = GetIntrospectionType(pa.Type)})
                     })
                 })
             }, _introspectionSerializerOptions);
@@ -161,7 +179,10 @@ namespace CookeRpc.AspNetCore
 
         private async Task<RpcResponse> Dispatch(RpcContext rpcContext, RpcInvocation invocation)
         {
-            var logger = rpcContext.ServiceProvider.GetService<ILogger<RpcHttpMiddleware>>();
+            var logger = rpcContext.ServiceProvider.GetRequiredService<ILogger<RpcHttpMiddleware>>();
+            var stopwatch = Stopwatch.StartNew();
+            using var _ =
+                logger.BeginScope(new {InvocationId = invocation.Id, invocation.Service, invocation.Procedure});
 
             if (string.IsNullOrWhiteSpace(invocation.Procedure))
             {
@@ -180,7 +201,10 @@ namespace CookeRpc.AspNetCore
 
             try
             {
-                return await procedure.Delegate.Invoke(rpcContext);
+                var rpcResponse = await procedure.Delegate.Invoke(rpcContext);
+                logger.LogInformation("RPC success ({ExecutionTime} ms) {Service}.{Method}", stopwatch.Elapsed.TotalMilliseconds,
+                    rpcContext.Invocation.Service, rpcContext.Invocation.Procedure);
+                return rpcResponse;
             }
             catch (Exception e)
             {
@@ -189,7 +213,8 @@ namespace CookeRpc.AspNetCore
 
             RpcResponse Error(string code, string message, Exception? exception = null)
             {
-                logger.LogError(exception, "RPC request error: {Code}: {Message}", code, message);
+                logger.LogError(exception, "RPC error ({ExecutionTime} ms): {Code} ({Message})", stopwatch.Elapsed.TotalMilliseconds, code,
+                    message);
                 return new RpcError(invocation.Id, code, message);
             }
         }

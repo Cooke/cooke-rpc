@@ -11,9 +11,9 @@ namespace CookeRpc.AspNetCore.Model
     public class RpcModel
     {
         private readonly RpcModelOptions _options;
-        private readonly List<RpcTypeDefinition> _typesDefinitions = new();
-        private readonly Dictionary<Type, Types.RpcType> _typesByClrType;
-        private readonly Dictionary<string, Types.RpcType> _typesByName;
+        private readonly List<RpcTypeDefinition> _typesDefinitions;
+        private readonly Dictionary<Type, RpcType> _typesByClrType;
+        private readonly Dictionary<string, RpcType> _typesByName;
         private readonly List<RpcServiceModel> _services = new();
 
         public RpcModel() : this(new RpcModelOptions())
@@ -23,32 +23,16 @@ namespace CookeRpc.AspNetCore.Model
         public RpcModel(RpcModelOptions options)
         {
             _options = options;
-
-            _typesByClrType = new()
-            {
-                {typeof(void), NativeType.Void},
-                {typeof(string), NativeType.String},
-                {typeof(int), NativeType.Number},
-                {typeof(long), NativeType.Number},
-                {typeof(ulong), NativeType.Number},
-                {typeof(uint), NativeType.Number},
-                {typeof(short), NativeType.Number},
-                {typeof(ushort), NativeType.Number},
-                {typeof(float), NativeType.Number},
-                {typeof(double), NativeType.Number},
-                {typeof(bool), NativeType.Boolean},
-                {typeof(TimeSpan), NativeType.String},
-                {typeof(IDictionary<,>), NativeType.Map},
-                {typeof(IEnumerable<>), NativeType.Array},
-            };
+            _typesByClrType = options.InitialTypeMap.ToDictionary(x => x.Key, x => x.Value);
             _typesByName = _typesByClrType.Values.Where(x => x.Name is not null).Distinct().ToDictionary(x => x.Name!);
+            _typesDefinitions = options.InitialTypeDefinitions.ToList();
         }
 
         public IReadOnlyCollection<RpcTypeDefinition> TypesDefinitions => _typesDefinitions;
 
         public IReadOnlyCollection<RpcServiceModel> Services => _services;
 
-        public Types.RpcType AddType(Type type)
+        public RpcType AddType(Type type)
         {
             if (!_options.TypeFilter(type))
             {
@@ -81,6 +65,12 @@ namespace CookeRpc.AspNetCore.Model
                 return new UnionType(new[] {NativeType.Null, AddType(genericNullable.GetGenericArguments().Single())});
             }
 
+            var optional = ReflectionHelper.GetGenericTypeOfDefinition(type, typeof(Optional<>));
+            if (optional != null)
+            {
+                return new GenericType(NativeType.Optional, new[] {AddType(optional.GetGenericArguments().Single())});
+            }
+
             if (type.IsInterface)
             {
                 return AddUnion(type);
@@ -104,11 +94,27 @@ namespace CookeRpc.AspNetCore.Model
             throw new ArgumentException($"Invalid type {type}");
         }
 
-        private Types.RpcType AddContract(Type type)
+        private RpcType AddType(RpcTypeDefinition typeDefinition)
+        {
+            var customType = new CustomType(typeDefinition);
+
+            _typesDefinitions.Add(typeDefinition);
+            _typesByClrType.Add(typeDefinition.ClrType, customType);
+            _typesByName.Add(typeDefinition.Name, customType);
+
+            return customType;
+        }
+
+        public RpcType AddScalarType(Type type, RpcType implementationType)
+        {
+            return AddType(new RpcScalarDefinition(_options.TypeNameFormatter(type), type, implementationType));
+        }
+
+        private RpcType AddContract(Type type)
         {
             var props = new List<RpcPropertyDefinition>();
-            var extenders = new List<Types.RpcType>();
-            var typeDefinition = new RpcContractDefinition(_options.TypeNameFormatter(type), type, props, extenders);
+            var extenders = new List<RpcType>();
+            var typeDefinition = new RpcComplexDefinition(_options.TypeNameFormatter(type), type, props, extenders);
             var customType = new CustomType(typeDefinition);
 
             _typesDefinitions.Add(typeDefinition);
@@ -122,9 +128,9 @@ namespace CookeRpc.AspNetCore.Model
             return customType;
         }
 
-        private Types.RpcType AddUnion(Type type)
+        private RpcType AddUnion(Type type)
         {
-            var memberTypes = new List<Types.RpcType>();
+            var memberTypes = new List<RpcType>();
             var name = _options.TypeNameFormatter(type);
             var typeDefinition = new RpcUnionDefinition(name, type, memberTypes);
             var customType = new CustomType(typeDefinition);
@@ -138,7 +144,7 @@ namespace CookeRpc.AspNetCore.Model
             return customType;
         }
 
-        private Types.RpcType AddEnum(Type type)
+        private RpcType AddEnum(Type type)
         {
             var typeDefinition = new RpcEnumDefinition(_options.TypeNameFormatter(type), type,
                 Enum.GetNames(type).Zip(Enum.GetValues(type).Cast<int>(),
@@ -217,7 +223,10 @@ namespace CookeRpc.AspNetCore.Model
                     rpcParameterModels.Add(paraModel);
                 }
 
-                var returnTypeModel = AddType(returnType);
+                var rpcReturnType = AddType(returnType);
+                var returnTypeModel = ReflectionHelper.IsNullableReturn(method)
+                    ? new UnionType(new[] {NativeType.Null, rpcReturnType})
+                    : rpcReturnType;
 
                 var procModel = new RpcProcedureModel(method.Name, rpcDelegate, returnTypeModel, rpcParameterModels);
 
@@ -227,12 +236,12 @@ namespace CookeRpc.AspNetCore.Model
             _services.Add(serviceModel);
         }
 
-        public Types.RpcType? GetType(string typeName)
+        public RpcType? GetType(string typeName)
         {
             return _typesByName.GetValueOrDefault(typeName);
         }
 
-        public Types.RpcType? GetType(Type clrType)
+        public RpcType? GetType(Type clrType)
         {
             return _typesByClrType.GetValueOrDefault(clrType);
         }
