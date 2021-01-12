@@ -74,6 +74,9 @@ namespace CookeRpc.AspNetCore
 
         private async Task ProcessRpcRequest(HttpContext context)
         {
+            var logger = context.RequestServices.GetRequiredService<ILogger<RpcHttpMiddleware>>();
+            var stopwatch = Stopwatch.StartNew();
+
             // Read everything
             ReadResult readResult;
             do
@@ -93,18 +96,48 @@ namespace CookeRpc.AspNetCore
                 return;
             }
 
+            using var _ = logger.BeginScope(new Dictionary<string, object>
+            {
+                {"InvocationId", invocation.Id},
+                {"Service", invocation.Service},
+                {"Procedure", invocation.Procedure}
+            });
+
             var rpcContext = new RpcContext(context.RequestServices, context.RequestAborted, context.User,
                 new ReadOnlyDictionary<object, object?>(
                     new Dictionary<object, object?> {{Constants.HttpContextKey, context}}), invocation);
 
-            var response = await Dispatch(rpcContext, invocation);
+            RpcResponse? response = null;
+            try
+            {
+                response = await Dispatch(rpcContext, invocation);
 
-            await context.Request.BodyReader.CompleteAsync();
+                await context.Request.BodyReader.CompleteAsync();
 
-            var pipeWriter = PipeWriter.Create(context.Response.Body, new StreamPipeWriterOptions(leaveOpen: true));
-            _rpcSerializer.Serialize(response, pipeWriter);
-            await pipeWriter.FlushAsync();
-            await pipeWriter.CompleteAsync();
+                var pipeWriter = PipeWriter.Create(context.Response.Body, new StreamPipeWriterOptions(leaveOpen: true));
+                _rpcSerializer.Serialize(response, pipeWriter);
+                await pipeWriter.FlushAsync();
+                await pipeWriter.CompleteAsync();
+            }
+            finally
+            {
+                // Put this after to include serialization times in response logging
+                switch (response)
+                {
+                    case RpcError rpcError:
+                        logger.Log(LogLevel.Error,
+                            "RPC error ({RpcDuration} ms) {Service}.{Method}: {ErrorCode} ({ErrorMessage})",
+                            stopwatch.ElapsedMilliseconds, rpcContext.Invocation.Service,
+                            rpcContext.Invocation.Procedure, rpcError.Code, rpcError.Message);
+                        break;
+
+                    case RpcReturnValue:
+                        logger.Log(LogLevel.Information, "RPC success ({RpcDuration} ms) {Service}.{Method}",
+                            stopwatch.ElapsedMilliseconds, rpcContext.Invocation.Service,
+                            rpcContext.Invocation.Procedure);
+                        break;
+                }
+            }
         }
 
         private async Task ProcessIntrospectionRequest(HttpContext context)
@@ -179,11 +212,6 @@ namespace CookeRpc.AspNetCore
 
         private async Task<RpcResponse> Dispatch(RpcContext rpcContext, RpcInvocation invocation)
         {
-            var logger = rpcContext.ServiceProvider.GetRequiredService<ILogger<RpcHttpMiddleware>>();
-            var stopwatch = Stopwatch.StartNew();
-            using var _ =
-                logger.BeginScope(new {InvocationId = invocation.Id, invocation.Service, invocation.Procedure});
-
             if (string.IsNullOrWhiteSpace(invocation.Procedure))
             {
                 return Error(Constants.ErrorCodes.BadRequest, "Missing procedure");
@@ -201,10 +229,7 @@ namespace CookeRpc.AspNetCore
 
             try
             {
-                var rpcResponse = await procedure.Delegate.Invoke(rpcContext);
-                logger.LogInformation("RPC success ({ExecutionTime} ms) {Service}.{Method}", stopwatch.Elapsed.TotalMilliseconds,
-                    rpcContext.Invocation.Service, rpcContext.Invocation.Procedure);
-                return rpcResponse;
+                return await procedure.Delegate.Invoke(rpcContext);
             }
             catch (Exception e)
             {
@@ -213,8 +238,6 @@ namespace CookeRpc.AspNetCore
 
             RpcResponse Error(string code, string message, Exception? exception = null)
             {
-                logger.LogError(exception, "RPC error ({ExecutionTime} ms): {Code} ({Message})", stopwatch.Elapsed.TotalMilliseconds, code,
-                    message);
                 return new RpcError(invocation.Id, code, message);
             }
         }
