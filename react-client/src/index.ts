@@ -41,7 +41,7 @@ export function useRpcDispatcher() {
 export function useRpc<TRpc extends (...args: any[]) => RpcInvocation<any>>(
   action: TRpc,
   options?: RpcHookOptions
-) {
+): RpcHookResult<TRpc> {
   const [invoking, setInvoking] = useState(false);
   const [error, setError] = useState<RpcError | undefined>(undefined);
   const [result, setResult] = useState<RpcReturnType<TRpc> | undefined>(
@@ -84,13 +84,27 @@ export function useRpc<TRpc extends (...args: any[]) => RpcInvocation<any>>(
     invoke,
     // Useful for optimistic updates
     setResult,
-    setError
+    setError,
   };
 }
 
+// Would be nice to infer this from function but it does not seem to be possible
+export type RpcHookResult<
+  TRpc extends (...args: any[]) => RpcInvocation<any>
+> = {
+  invoking: boolean;
+  error?: RpcError;
+  result?: RpcReturnType<TRpc>;
+  invoke: (...args: Parameters<TRpc>) => Promise<RpcReturnType<TRpc>>;
+  setResult: React.Dispatch<
+    React.SetStateAction<RpcReturnType<TRpc> | undefined>
+  >;
+  setError: React.Dispatch<React.SetStateAction<RpcError | undefined>>;
+};
+
 export function useRpcFetch<
   TRpc extends (...args: any[]) => RpcInvocation<any>
->(action: TRpc, ...args: Parameters<TRpc>) {
+>(action: TRpc, ...args: Parameters<TRpc>): RpcFetchHookResult<TRpc> {
   const [fetched, setQueried] = useState(false);
   const [willFetch, setWillFetch] = useState(true);
   const { invoking, result: returnValue, error, invoke } = useRpc(action);
@@ -113,3 +127,13 @@ export function useRpcFetch<
     fetched,
   };
 }
+
+export type RpcFetchHookResult<
+  TRpc extends (...args: any[]) => RpcInvocation<any>
+> = {
+  fetching: boolean;
+  error?: RpcError;
+  result?: RpcReturnType<TRpc>;
+  refetch: (...args: Parameters<TRpc>) => Promise<RpcReturnType<TRpc>>;
+  fetched: boolean;
+};

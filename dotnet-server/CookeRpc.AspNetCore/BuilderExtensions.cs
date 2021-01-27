@@ -12,6 +12,7 @@ namespace CookeRpc.AspNetCore
     {
         public static IServiceCollection AddRpc(this IServiceCollection services)
         {
+            services.AddAuthorizationCore();
             return services;
         }
 

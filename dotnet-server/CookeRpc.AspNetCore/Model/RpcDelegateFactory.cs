@@ -171,6 +171,11 @@ namespace CookeRpc.AspNetCore.Model
 
         private static async Task<bool> AuthorizeGuard(MethodInfo methodInfo, IServiceProvider sp, ClaimsPrincipal user)
         {
+            if (methodInfo.GetCustomAttribute<AllowAnonymousAttribute>() != null)
+            {
+                return true;
+            }
+            
             var authData = methodInfo.GetCustomAttributes<AuthorizeAttribute>()
                 .Concat(methodInfo.DeclaringType!.GetCustomAttributes<AuthorizeAttribute>()).Cast<IAuthorizeData>();
 

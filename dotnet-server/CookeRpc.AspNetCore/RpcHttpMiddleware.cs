@@ -96,17 +96,18 @@ namespace CookeRpc.AspNetCore
                 return;
             }
 
-            using var _ = logger.BeginScope(new Dictionary<string, object>
-            {
-                {"InvocationId", invocation.Id},
-                {"Service", invocation.Service},
-                {"Procedure", invocation.Procedure}
-            });
-
             var rpcContext = new RpcContext(context.RequestServices, context.RequestAborted, context.User,
                 new ReadOnlyDictionary<object, object?>(
                     new Dictionary<object, object?> {{Constants.HttpContextKey, context}}), invocation);
 
+            using var _ = logger.BeginScope(new Dictionary<string, object?>
+            {
+                {"InvocationId", invocation.Id},
+                {"Service", invocation.Service},
+                {"Procedure", invocation.Procedure},
+                {"IdentityName", rpcContext.User.Identity?.Name}
+            });
+            
             RpcResponse? response = null;
             try
             {
