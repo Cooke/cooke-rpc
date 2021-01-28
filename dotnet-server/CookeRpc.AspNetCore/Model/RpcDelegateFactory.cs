@@ -116,7 +116,7 @@ namespace CookeRpc.AspNetCore.Model
                 if (!authorized)
                 {
                     return new RpcError(context.Invocation.Id, Constants.ErrorCodes.AuthorizationError,
-                        "Not authorized");
+                        "Not authorized", null);
                 }
 
                 return await execDelegate(context);

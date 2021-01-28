@@ -126,7 +126,7 @@ namespace CookeRpc.AspNetCore
                 switch (response)
                 {
                     case RpcError rpcError:
-                        logger.Log(LogLevel.Error,
+                        logger.Log(LogLevel.Error, rpcError.Exception,
                             "RPC error ({RpcDuration} ms) {Service}.{Method}: {ErrorCode} ({ErrorMessage})",
                             stopwatch.ElapsedMilliseconds, rpcContext.Invocation.Service,
                             rpcContext.Invocation.Procedure, rpcError.Code, rpcError.Message);
@@ -239,7 +239,7 @@ namespace CookeRpc.AspNetCore
 
             RpcResponse Error(string code, string message, Exception? exception = null)
             {
-                return new RpcError(invocation.Id, code, message);
+                return new RpcError(invocation.Id, code, message, exception);
             }
         }
     }

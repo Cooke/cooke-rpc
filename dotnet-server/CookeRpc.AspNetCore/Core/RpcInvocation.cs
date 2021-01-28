@@ -40,14 +40,17 @@ namespace CookeRpc.AspNetCore.Core
 
     public record RpcError : RpcResponse
     {
-        public RpcError(string id, string code, string message) : base(id)
+        public RpcError(string id, string code, string message, Exception? exception) : base(id)
         {
             Code = code;
             Message = message;
+            Exception = exception;
         }
 
-        public string Code { get; init; }
+        public string Code { get; }
 
-        public string Message { get; init; }
+        public string Message { get; }
+        
+        public Exception? Exception { get; }
     }
 }
