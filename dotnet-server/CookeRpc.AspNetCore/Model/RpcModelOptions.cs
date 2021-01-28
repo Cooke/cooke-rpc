@@ -64,6 +64,7 @@ namespace CookeRpc.AspNetCore.Model
             {typeof(IDictionary<,>), NativeType.Map},
             {typeof(IEnumerable<>), NativeType.Array},
             {typeof(Optional<>), NativeType.Optional},
+            {typeof(Decimal), NativeType.Number}
         };
     }
 }
