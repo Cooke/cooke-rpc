@@ -64,6 +64,21 @@ namespace CookeRpc.Tests
             public Task<string?> GetStringOrNullTask() => Task.FromResult<string?>(null);
 
             public Task<string> GetStringTask() => Task.FromResult("");
+
+            public RpcResult GetResult() => new SuccessResult();
+        }
+
+        [RpcType(Name = "Result")]
+        public abstract class RpcResult
+        {
+        }
+
+        public class SuccessResult : RpcResult
+        {
+        }
+        
+        public class FailResult : RpcResult
+        {
         }
     }
 }
