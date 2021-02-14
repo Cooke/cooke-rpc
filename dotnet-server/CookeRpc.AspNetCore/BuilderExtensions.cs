@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using CookeRpc.AspNetCore.JsonSerialization;
 using CookeRpc.AspNetCore.Model;
@@ -18,7 +19,7 @@ namespace CookeRpc.AspNetCore
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, string path = "/rpc")
         {
-            var model = new RpcModel(new RpcModelOptions());
+            var model = new RpcModel(new() {ContextType = typeof(HttpContent)});
             model.AddRpcServicesByAttribute();
             return UseRpc(app, model, path);
         }

@@ -96,9 +96,9 @@ namespace CookeRpc.AspNetCore
                 return;
             }
 
-            var rpcContext = new RpcContext(context.RequestServices, context.RequestAborted, context.User,
+            var rpcContext = new HttpRpcContext(context.RequestServices, context.RequestAborted, context.User,
                 new ReadOnlyDictionary<object, object?>(
-                    new Dictionary<object, object?> {{Constants.HttpContextKey, context}}), invocation);
+                    new Dictionary<object, object?> {{Constants.HttpContextKey, context}}), invocation, context);
 
             using var _ = logger.BeginScope(new Dictionary<string, object?>
             {

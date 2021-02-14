@@ -211,7 +211,7 @@ namespace CookeRpc.AspNetCore.Model
 
             foreach (var method in methods)
             {
-                var (rpcDelegate, parameterInfos, returnType) = RpcDelegateFactory.Create(method);
+                var (rpcDelegate, parameterInfos, returnType) = RpcDelegateFactory.Create(method, _options.ContextType);
 
                 List<RpcParameterModel> rpcParameterModels = new();
                 foreach (var parameterInfo in parameterInfos)

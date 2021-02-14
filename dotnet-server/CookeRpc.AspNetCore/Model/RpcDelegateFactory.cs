@@ -14,15 +14,10 @@ namespace CookeRpc.AspNetCore.Model
 {
     public static class RpcDelegateFactory
     {
-        private static readonly ParameterExpression ContextParam = Expression.Parameter(typeof(RpcContext));
+        
         private static readonly ParameterExpression ArgumentsParam = Expression.Parameter(typeof(object[]));
 
-        private static readonly IDictionary<Type, Expression> ContextArguments = new Dictionary<Type, Expression>
-        {
-            {typeof(RpcContext), ContextParam}
-        };
-
-        public static (RpcDelegate, List<ParameterInfo>, Type returnType) Create(MethodInfo methodInfo)
+        public static (RpcDelegate, List<ParameterInfo>, Type returnType) Create(MethodInfo methodInfo, Type contextType)
         {
             var controllerType = methodInfo.DeclaringType;
             if (controllerType == null)
@@ -30,9 +25,15 @@ namespace CookeRpc.AspNetCore.Model
                 throw new ArgumentException("Method info is not part of a controller type");
             }
 
-            var (rpcArguments, methodArguments) = CreateArguments(methodInfo, ContextArguments, ArgumentsParam);
+            if (!contextType.IsAssignableTo(typeof(RpcContext)))
+            {
+                throw new ArgumentException($"Context type must be a subtype of {nameof(RpcContext)}");
+            }
 
-            var spExpression = Expression.Property(ContextParam, nameof(RpcContext.ServiceProvider));
+            ParameterExpression contextParam = Expression.Parameter(typeof(RpcContext));
+            var (rpcArguments, methodArguments) = CreateArguments(methodInfo, contextParam, contextType, ArgumentsParam);
+
+            var spExpression = Expression.Property(contextParam, nameof(RpcContext.ServiceProvider));
             var result = CallMethod(methodInfo, spExpression, controllerType, methodArguments);
             Type returnType = methodInfo.ReturnType;
 
@@ -73,7 +74,7 @@ namespace CookeRpc.AspNetCore.Model
             }
 
             var executeExpression =
-                Expression.Lambda<Func<RpcContext, object?[], Task<object>>>(result, ContextParam, ArgumentsParam);
+                Expression.Lambda<Func<RpcContext, object?[], Task<object>>>(result, contextParam, ArgumentsParam);
 
             var execute = executeExpression.Compile();
 
@@ -143,7 +144,8 @@ namespace CookeRpc.AspNetCore.Model
 
         private static (List<ParameterInfo> commandArguments, List<Expression> methodArguments) CreateArguments(
             MethodInfo methodInfo,
-            IDictionary<Type, Expression> contextArguments,
+            ParameterExpression contextParam,
+            Type actualContextType,
             ParameterExpression argumentsArrayParam)
         {
             int inputIndex = 0;
@@ -151,9 +153,17 @@ namespace CookeRpc.AspNetCore.Model
             var methodArguments = new List<Expression>();
             foreach (var parameterInfo in methodInfo.GetParameters())
             {
-                if (contextArguments.TryGetValue(parameterInfo.ParameterType, out var arg))
+                if (parameterInfo.ParameterType.IsAssignableTo(typeof(RpcContext)))
                 {
-                    methodArguments.Add(arg);
+                    if (actualContextType.IsAssignableTo(parameterInfo.ParameterType))
+                    {
+                        methodArguments.Add(Expression.Convert(contextParam, parameterInfo.ParameterType));
+                    }
+                    else
+                    {
+                        throw new ArgumentException(
+                            $"Parameter of type {parameterInfo.ParameterType.Name} is not compatible with context of type {actualContextType.Name}");
+                    }
                 }
                 else
                 {

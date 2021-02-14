@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Security.Claims;
 using System.Threading;
+using Microsoft.AspNetCore.Http;
 
 namespace CookeRpc.AspNetCore.Core
 {
@@ -10,7 +12,7 @@ namespace CookeRpc.AspNetCore.Core
         public RpcContext(IServiceProvider serviceProvider,
             CancellationToken cancellationToken,
             ClaimsPrincipal user,
-            ReadOnlyDictionary<object, object?> items,
+            IReadOnlyDictionary<object, object?> items,
             RpcInvocation invocation)
         {
             ServiceProvider = serviceProvider;
@@ -26,8 +28,23 @@ namespace CookeRpc.AspNetCore.Core
 
         public ClaimsPrincipal User { get; init; }
 
-        public ReadOnlyDictionary<object, object?> Items { get; }
+        public IReadOnlyDictionary<object, object?> Items { get; }
 
         public RpcInvocation Invocation { get; init; }
+    }
+
+    public class HttpRpcContext : RpcContext
+    {
+        public HttpContext HttpContent { get; }
+
+        public HttpRpcContext(IServiceProvider serviceProvider,
+            CancellationToken cancellationToken,
+            ClaimsPrincipal user,
+            ReadOnlyDictionary<object, object?> items,
+            RpcInvocation invocation,
+            HttpContext httpContent) : base(serviceProvider, cancellationToken, user, items, invocation)
+        {
+            HttpContent = httpContent;
+        }
     }
 }

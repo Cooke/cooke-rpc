@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
 using CookeRpc.AspNetCore.Utils;
@@ -66,5 +67,7 @@ namespace CookeRpc.AspNetCore.Model
             {typeof(Optional<>), NativeType.Optional},
             {typeof(Decimal), NativeType.Number}
         };
+        
+        public Type ContextType { get; init; } = typeof(RpcContext);
     }
 }
