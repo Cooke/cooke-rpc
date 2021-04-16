@@ -87,6 +87,20 @@ namespace CookeRpc.Tests
             var apple = Assert.IsType<Apple>(obj);
             Assert.Equal(3, Assert.IsType<Apple>(apple).Radius);
         }
+        
+        [Fact]
+        public void SerializeWithTypeInfoOfNestedObjects()
+        {
+            var json = JsonSerializer.Serialize(new ObjectWrapper {Value = new Banana()}, _options);
+            Assert.Equal(
+                "{\"Value\":{\"$type\":\"Banana\",\"Angle\":30}}",
+                json);
+        }
+        
+        public class ObjectWrapper
+        {
+            public object? Value { get; set; }
+        }
 
         public interface IFruit
         {

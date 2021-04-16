@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CookeRpc.AspNetCore.JsonSerialization
 {
@@ -68,15 +69,30 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             foreach (var propertyInfo in value!.GetType()
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy))
             {
-                writer.WritePropertyName(options.PropertyNamingPolicy?.ConvertName(propertyInfo.Name) ?? propertyInfo.Name);
-                JsonSerializer.Serialize(writer, propertyInfo.GetValue(value), propertyInfo.PropertyType, options);
+                WriteValue(propertyInfo.Name, propertyInfo.GetValue(value), propertyInfo.PropertyType);
             }
 
             foreach (var fieldInfo in value!.GetType()
                 .GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy))
             {
-                writer.WritePropertyName(options.PropertyNamingPolicy?.ConvertName(fieldInfo.Name) ?? fieldInfo.Name);
-                JsonSerializer.Serialize(writer, fieldInfo.GetValue(value), fieldInfo.FieldType, options);
+                WriteValue(fieldInfo.Name, fieldInfo.GetValue(value), fieldInfo.FieldType);
+            }
+
+            void WriteValue(string propName, object? propValue, Type propType)
+            {
+                writer.WritePropertyName(options.PropertyNamingPolicy?.ConvertName(propName) ?? propName);
+
+                // The JsonSerializer special treats serialization of object types and then uses the runtime type (obj.GetType())
+                // which will then skip serializing the $type property. Because of this we special treat the object type
+                if (propValue != null && propType == typeof(object))
+                {
+                    var converter = (JsonConverter<object>) options.GetConverter(propType);
+                    converter.Write(writer, propValue, options);
+                }
+                else
+                {
+                    JsonSerializer.Serialize(writer, propValue, propType, options);
+                }
             }
         }
     }
