@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using Namotion.Reflection;
 
 namespace CookeRpc.AspNetCore.Utils
 {
@@ -55,54 +55,94 @@ namespace CookeRpc.AspNetCore.Utils
 
         public static bool IsNullable(MemberInfo memberInfo)
         {
-            return memberInfo.ToContextualMember().Nullability == Nullability.Nullable;
-            //
-            // var nullableAttribute =
-            //     memberInfo.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == "NullableAttribute");
-            // if (nullableAttribute != null && nullableAttribute.ConstructorArguments.First().Value!.Equals((byte) 2))
-            // {
-            //     return true;
-            // }
-            //
-            // return IsNullable(memberInfo switch
-            // {
-            //     PropertyInfo propertyInfo => propertyInfo.PropertyType,
-            //     FieldInfo fieldInfo => fieldInfo.FieldType,
-            //     _ => throw new NotSupportedException()
-            // });
+            return memberInfo switch
+            {
+                PropertyInfo propertyInfo => IsNullable(propertyInfo),
+                FieldInfo fieldInfo => IsNullable(fieldInfo),
+                _ => throw new NotSupportedException()
+            };
         }
 
         public static bool IsNullableReturn(MethodInfo methodInfo)
         {
-            var returnInfo = methodInfo.ReturnParameter.ToContextualParameter();
-            if (returnInfo.Nullability == Nullability.Nullable)
+            if (IsNullable(methodInfo.ReturnParameter))
             {
                 return true;
             }
 
             if (GetGenericTypeOfDefinition(methodInfo.ReturnType, typeof(Task<>)) != null)
             {
-                return returnInfo.GenericArguments.First().Nullability == Nullability.Nullable;
+                var nullable = methodInfo.ReturnParameter.CustomAttributes.FirstOrDefault(x =>
+                    x.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute");
+                if (nullable != null && nullable.ConstructorArguments.Count == 1)
+                {
+                    var attributeArgument = nullable.ConstructorArguments[0];
+                    if (attributeArgument.ArgumentType == typeof(byte[]))
+                    {
+                        var args = (ReadOnlyCollection<CustomAttributeTypedArgument>) attributeArgument.Value!;
+                        if (args.Count > 0 && args[1].ArgumentType == typeof(byte))
+                        {
+                            return (byte) args[1].Value! == 2;
+                        }
+                    }
+                    else if (attributeArgument.ArgumentType == typeof(byte))
+                    {
+                        return (byte) attributeArgument.Value! == 2;
+                    }
+                }
             }
 
             return false;
         }
 
-        private static bool IsNullable(Type type)
-        {
-            return GetGenericTypeOfDefinition(type, typeof(Nullable<>)) != null;
-        }
+        public static bool IsNullable(PropertyInfo property) =>
+            IsNullableHelper(property.PropertyType, property.DeclaringType, property.CustomAttributes);
 
-        public static bool IsNullable(ParameterInfo parameter)
+        public static bool IsNullable(FieldInfo field) =>
+            IsNullableHelper(field.FieldType, field.DeclaringType, field.CustomAttributes);
+
+        public static bool IsNullable(ParameterInfo parameter) =>
+            IsNullableHelper(parameter.ParameterType, parameter.Member, parameter.CustomAttributes);
+
+        private static bool IsNullableHelper(Type memberType,
+            MemberInfo? declaringType,
+            IEnumerable<CustomAttributeData> customAttributes)
         {
-            var nullableAttribute =
-                parameter.CustomAttributes.FirstOrDefault(x => x.AttributeType.Name == "NullableAttribute");
-            if (nullableAttribute != null && nullableAttribute.ConstructorArguments.First().Value!.Equals((byte) 2))
+            if (memberType.IsValueType)
+                return Nullable.GetUnderlyingType(memberType) != null;
+
+            var nullable = customAttributes.FirstOrDefault(x =>
+                x.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute");
+            if (nullable != null && nullable.ConstructorArguments.Count == 1)
             {
-                return true;
+                var attributeArgument = nullable.ConstructorArguments[0];
+                if (attributeArgument.ArgumentType == typeof(byte[]))
+                {
+                    var args = (ReadOnlyCollection<CustomAttributeTypedArgument>) attributeArgument.Value!;
+                    if (args.Count > 0 && args[0].ArgumentType == typeof(byte))
+                    {
+                        return (byte) args[0].Value! == 2;
+                    }
+                }
+                else if (attributeArgument.ArgumentType == typeof(byte))
+                {
+                    return (byte) attributeArgument.Value! == 2;
+                }
             }
 
-            return IsNullable(parameter.ParameterType);
+            for (var type = declaringType; type != null; type = type.DeclaringType)
+            {
+                var context = type.CustomAttributes.FirstOrDefault(x =>
+                    x.AttributeType.FullName == "System.Runtime.CompilerServices.NullableContextAttribute");
+                if (context != null && context.ConstructorArguments.Count == 1 &&
+                    context.ConstructorArguments[0].ArgumentType == typeof(byte))
+                {
+                    return (byte) context.ConstructorArguments[0].Value! == 2;
+                }
+            }
+
+            // Couldn't find a suitable attribute
+            return false;
         }
 
         public static Type? GetTaskType(this Type taskType)

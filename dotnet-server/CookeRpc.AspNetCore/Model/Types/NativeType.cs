@@ -10,6 +10,7 @@
         public static NativeType Map { get; } = new("map");
         public static NativeType Array { get; } = new("array");
         public static NativeType Optional { get; } = new("optional");
+        public static NativeType Any { get; } = new("any");
 
         public NativeType(string name)
         {

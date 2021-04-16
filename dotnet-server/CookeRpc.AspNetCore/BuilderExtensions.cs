@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.JsonSerialization;
 using CookeRpc.AspNetCore.Model;
 using Microsoft.AspNetCore.Builder;
@@ -51,10 +52,17 @@ namespace CookeRpc.AspNetCore
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app,
             RpcModel model,
-            JsonRpcSerializer serializer,
+            IRpcSerializer serializer,
             string path = "/rpc")
         {
+            UseRpcIntrospection(app, model, path + "/introspection");
             return app.UseMiddleware<RpcHttpMiddleware>(new RpcHttpMiddlewareOptions(model, serializer) {Path = path});
+        }
+
+        public static void UseRpcIntrospection(this IApplicationBuilder app, RpcModel model, string path = "/rpc/introspection")
+        {
+            app.UseMiddleware<RpcIntrospectionHttpMiddleware>(
+                new RpcIntrospectionHttpMiddlewareOptions(model) {Path = path});
         }
     }
 }

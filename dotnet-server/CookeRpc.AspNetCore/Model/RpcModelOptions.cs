@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Reflection;
+using System.Runtime.Serialization;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
@@ -10,43 +12,7 @@ namespace CookeRpc.AspNetCore.Model
 {
     public class RpcModelOptions
     {
-        public Func<Type, bool> TypeFilter { get; init; } = type => true;
-
-        public Func<MemberInfo, string> MemberNameFormatter { get; init; } = memberInfo =>
-            Char.ToLower(memberInfo.Name[0]) + memberInfo.Name.Substring(1);
-
-        public Func<Type, string> TypeNameFormatter { get; init; } = type =>
-            type.GetCustomAttribute<RpcTypeAttribute>()?.Name ??
-            (type.IsInterface && type.Name.StartsWith("I") ? type.Name.Substring(1) : type.Name);
-
-        public BindingFlags MemberBindingFilter { get; init; } =
-            BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
-
-        public Func<MemberInfo, bool> MemberFilter { get; init; } = info =>
-        {
-            switch (info)
-            {
-                case FieldInfo _:
-                case PropertyInfo _:
-                    return true;
-
-                default:
-                    return false;
-            }
-        };
-
-        public Func<MemberInfo, bool> IsMemberOptional { get; init; } = ReflectionHelper.IsNullable;
-
-        public Func<MemberInfo, bool> IsMemberNullable { get; init; } = ReflectionHelper.IsNullable;
-
-        public Func<string, string> EnumMemberNameFormatter { get; init; } = name => name;
-
-        public Func<Type, string> ServiceNameFormatter { get; init; } = type => type.Name;
-
-        public IReadOnlyCollection<RpcTypeDefinition> InitialTypeDefinitions { get; init; } =
-            ArraySegment<RpcTypeDefinition>.Empty;
-
-        public IReadOnlyDictionary<Type, RpcType> InitialTypeMap { get; init; } = new Dictionary<Type, RpcType>
+        public static readonly ImmutableDictionary<Type, RpcType> DefaultTypeMap = new Dictionary<Type, RpcType>
         {
             {typeof(void), NativeType.Void},
             {typeof(string), NativeType.String},
@@ -62,12 +28,52 @@ namespace CookeRpc.AspNetCore.Model
             {typeof(TimeSpan), NativeType.String},
             {typeof(DateTime), NativeType.String},
             {typeof(DateTimeOffset), NativeType.String},
-            {typeof(IDictionary<,>), NativeType.Map},
-            {typeof(IEnumerable<>), NativeType.Array},
-            {typeof(Optional<>), NativeType.Optional},
-            {typeof(Decimal), NativeType.Number}
+            {typeof(decimal), NativeType.Number},
+            {typeof(object), NativeType.Any}
+        }.ToImmutableDictionary();
+
+        public Func<Type, bool> TypeFilter { get; init; } = t => !IsReflectionType(t);
+
+        private static bool IsReflectionType(Type type) =>
+            type == typeof(Type) || type.Namespace?.StartsWith("System.Reflection") == true;
+
+        public Func<MemberInfo, string> MemberNameFormatter { get; init; } = memberInfo =>
+            Char.ToLower(memberInfo.Name[0]) + memberInfo.Name.Substring(1);
+
+        public Func<Type, string> TypeNameFormatter { get; init; } = type =>
+            type.GetCustomAttribute<RpcTypeAttribute>()?.Name ??
+            (type.IsInterface && type.Name.StartsWith("I") ? type.Name.Substring(1) : type.Name);
+
+        public BindingFlags MemberBindingFilter { get; init; } =
+            BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
+
+        public Func<MemberInfo, bool> MemberFilter { get; init; } = info =>
+        {
+            return info switch
+            {
+                _ when info.GetCustomAttribute<IgnoreDataMemberAttribute>() != null => false,
+                FieldInfo fi => !IsReflectionType(fi.FieldType),
+                PropertyInfo pi => !IsReflectionType(pi.PropertyType),
+                _ => false
+            };
         };
-        
+
+        public Func<MemberInfo, bool> IsMemberOptional { get; init; } = ReflectionHelper.IsNullable;
+
+        public Func<MemberInfo, bool> IsMemberNullable { get; init; } = ReflectionHelper.IsNullable;
+
+        public Func<string, string> EnumMemberNameFormatter { get; init; } = name => name;
+
+        public Func<Type, string> ServiceNameFormatter { get; init; } = type => type.Name;
+
+        public IReadOnlyDictionary<Type, RpcType> CustomDefaultTypeMap { get; init; } = DefaultTypeMap;
+
         public Type ContextType { get; init; } = typeof(RpcContext);
+
+        public Func<ParameterInfo, ParameterResolver?>? CustomParameterResolver { get; init; } = null;
+
+        public Func<Type, RpcTypeDefinition?> CustomTypeDefiner { get; init; } = _ => null;
+        
+        public Func<Type, RpcType?> CustomTypeResolver { get; init; } = _ => null;
     }
 }

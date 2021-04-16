@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.JsonSerialization;
 using CookeRpc.AspNetCore.Utils;
@@ -10,12 +11,12 @@ using Xunit.Abstractions;
 
 namespace CookeRpc.Tests
 {
-    public class JsonSerializationTests
+    public class NestedTypeJsonSerializationTests
     {
         private readonly ITestOutputHelper _testOutputHelper;
         private readonly JsonSerializerOptions? _options;
 
-        public JsonSerializationTests(ITestOutputHelper testOutputHelper)
+        public NestedTypeJsonSerializationTests(ITestOutputHelper testOutputHelper)
         {
             _testOutputHelper = testOutputHelper;
 
@@ -23,13 +24,14 @@ namespace CookeRpc.Tests
             {
                 Converters =
                 {
-                    new OptionalRpcJsonConverterFactory(), new TypedObjectConverterFactory(new TestTypeBinder())
+                    new OptionalRpcJsonConverterFactory(),
+                    new NestedTypedObjectConverterFactory(new TestTypeBinder()),
                 }
             };
         }
 
         [Fact]
-        public void SerializeJsonTest()
+        public void SerializeWithNestedTypeInfoTest()
         {
             var json = JsonSerializer.Serialize<object>(
                 new FruitBasket10Size
@@ -43,12 +45,12 @@ namespace CookeRpc.Tests
 
             _testOutputHelper.WriteLine(json);
             Assert.Equal(
-                "{\"$FruitBasket10Size\":{\"Fruits\":[{\"$Apple\":{\"Radius\":3}},{\"$Banana\":{\"Angle\":30}}],\"Size\":10,\"Decoration\":{\"$RosetteDecoration\":{\"Length\":15,\"Color\":\"Pink\",\"DecorationFruit\":{\"$Apple\":{\"Radius\":33}}}}}}",
+                "{\"Fruits\":[{\"$Apple\":{\"Radius\":3}},{\"$Banana\":{\"Angle\":30}}],\"Size\":10,\"Decoration\":{\"$RosetteDecoration\":{\"Length\":15,\"Color\":\"Pink\",\"DecorationFruit\":{\"$Apple\":{\"Radius\":33}}}}}",
                 json);
         }
 
         [Fact]
-        public void DeserializeWithTypeInfo()
+        public void DeserializeWithNestedTypeInfo()
         {
             const string json =
                 "{\"$FruitBasket10Size\":{\"Fruits\":[{\"$Apple\":{\"Radius\":3}},{\"$Banana\":{\"Angle\":30}}],\"Size\":10,\"Decoration\":{\"$RosetteDecoration\":{\"Length\":15,\"Color\":\"Pink\",\"DecorationFruit\":{\"$Apple\":{\"Radius\":33}}}}}}";
@@ -63,33 +65,6 @@ namespace CookeRpc.Tests
             Assert.Equal("Pink", decoration.Color);
             var decorationFruit = Assert.IsType<Apple>(decoration.DecorationFruit);
             Assert.Equal(33, decorationFruit.Radius);
-        }
-
-        [Fact]
-        public void DeserializeEmptyOptional()
-        {
-            const string json = "{ }";
-            var obj = JsonSerializer.Deserialize<ModelWithOptional>(json, _options)!;
-            Assert.False(obj.OptionalString.HasValue);
-            Assert.False(obj.OptionalNullString.HasValue);
-        }
-
-        [Fact]
-        public void DeserializeWithSetOptional()
-        {
-            const string json = "{ \"optionalNullString\": null, \"optionalString\": \"Hello\" }";
-            var obj = JsonSerializer.Deserialize<ModelWithOptional>(json, _options)!;
-            Assert.True(obj.OptionalString.HasValue);
-            Assert.True(obj.OptionalNullString.HasValue);
-            Assert.Null(obj.OptionalNullString.Value);
-            Assert.Equal("Hello", obj.OptionalString.Value);
-        }
-
-        private class ModelWithOptional
-        {
-            public Optional<string?> OptionalNullString { get; set; }
-
-            public Optional<string> OptionalString { get; set; }
         }
 
         [Fact]
@@ -134,7 +109,7 @@ namespace CookeRpc.Tests
             public Decoration Decoration { get; set; }
         }
 
-        class FruitBasket10Size : IFruitBasket
+        public class FruitBasket10Size : IFruitBasket
         {
             public IEnumerable<IFruit> Fruits { get; init; } = Array.Empty<IFruit>();
 
@@ -162,8 +137,13 @@ namespace CookeRpc.Tests
             public string GetName(Type type) => type.Name;
 
             public Type ResolveType(string typeName, Type targetType) =>
-                ReflectionHelper.GetAllUserTypes().FirstOrDefault(x => x.Name == typeName) ??
+                typeof(NestedTypeJsonSerializationTests).GetNestedType(typeName) ??
                 throw new Exception($"Cannot resolve type with name '{typeName}'");
+            
+            public bool ShouldResolveType(Type targetType)
+            {
+                return targetType == typeof(object) || targetType.IsInterface || targetType.IsAbstract;
+            }
         }
     }
 }

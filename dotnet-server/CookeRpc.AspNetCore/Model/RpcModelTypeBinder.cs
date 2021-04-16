@@ -10,15 +10,18 @@ namespace CookeRpc.AspNetCore.Model
     public class RpcModelTypeBinder : ITypeBinder
     {
         private readonly RpcModel _rpcModel;
+        private Dictionary<string, RpcType> _typesByName;
 
         public RpcModelTypeBinder(RpcModel rpcModel)
         {
             _rpcModel = rpcModel;
+            _typesByName = rpcModel.MappedTypes.Values.Where(x => x.Name is not null).GroupBy(x => x.Name)
+                .ToDictionary(x => x.Key!, x => x.First());
         }
 
         public string GetName(Type type)
         {
-            var rpcType = _rpcModel.GetType(type);
+            var rpcType = _rpcModel.MappedTypes.GetValueOrDefault(type);
             if (rpcType == null)
             {
                 throw new InvalidOperationException($"Cannot resolve RPC type for CLR type: {type}");
@@ -34,6 +37,11 @@ namespace CookeRpc.AspNetCore.Model
 
         public Type ResolveType(string typeName, Type targetType) => Resolve(Parse(typeName), targetType);
 
+        public bool ShouldResolveType(Type targetType)
+        {
+            return _rpcModel.TypesDefinitions.Count(x => x.ClrType.IsAssignableTo(targetType)) > 1;
+        }
+
         private JsonRpcTypeRef Parse(string typeName)
         {
             int tail = 0;
@@ -45,7 +53,7 @@ namespace CookeRpc.AspNetCore.Model
 
         private Type Resolve(JsonRpcTypeRef refDataType, Type targetType)
         {
-            var rpcDataType = _rpcModel.GetType(refDataType.Name) ??
+            var rpcDataType = _typesByName.GetValueOrDefault(refDataType.Name) ??
                               throw new InvalidOperationException("Failed to resolve type");
             var clrDataType = rpcDataType switch
             {
@@ -57,6 +65,12 @@ namespace CookeRpc.AspNetCore.Model
                     _ => throw new InvalidOperationException("Failed to resolve type")
                 },
                 CustomType customType => customType.TypeDefinition.ClrType,
+                GenericType genericType => genericType switch
+                {
+                    var x when x.InnerType == NativeType.Array => typeof(List<>),
+                    var x when x.InnerType == NativeType.Map => typeof(Dictionary<,>),
+                    _ => throw new InvalidOperationException("Failed to resolve type")
+                },
                 _ => throw new InvalidOperationException("Failed to resolve type")
             };
 

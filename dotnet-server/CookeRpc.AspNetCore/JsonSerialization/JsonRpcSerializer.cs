@@ -13,7 +13,7 @@ namespace CookeRpc.AspNetCore.JsonSerialization
         private readonly JsonSerializerOptions _payloadSerializerOptions;
         private readonly JsonSerializerOptions _protocolSerializerOptions;
 
-        public JsonRpcSerializer(ITypeBinder typeBinder)
+        public JsonRpcSerializer(ITypeBinder typeBinder, Action<JsonSerializerOptions>? configure = null)
         {
             _protocolSerializerOptions = new JsonSerializerOptions {PropertyNamingPolicy = JsonNamingPolicy.CamelCase};
             _payloadSerializerOptions = new JsonSerializerOptions
@@ -21,11 +21,15 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                 Converters =
                 {
                     new OptionalRpcJsonConverterFactory(),
-                    new TypedObjectConverterFactory(typeBinder),
+                    new NestedTypedObjectConverterFactory(typeBinder),
                     new JsonStringEnumConverter(),
                 },
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true,
+                IncludeFields = true
             };
+            
+            configure?.Invoke(_payloadSerializerOptions);
         }
 
         public RpcInvocation Parse(ReadOnlySequence<byte> buffer)

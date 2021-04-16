@@ -12,12 +12,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CookeRpc.AspNetCore.Model
 {
+    public delegate object ParameterResolver(RpcContext context);
+
     public static class RpcDelegateFactory
     {
-        
         private static readonly ParameterExpression ArgumentsParam = Expression.Parameter(typeof(object[]));
 
-        public static (RpcDelegate, List<ParameterInfo>, Type returnType) Create(MethodInfo methodInfo, Type contextType)
+        public static (Lazy<RpcDelegate>, List<ParameterInfo>, Type returnType) Create(MethodInfo methodInfo,
+            Type contextType,
+            Func<ParameterInfo, ParameterResolver?>? customParameterResolver)
         {
             var controllerType = methodInfo.DeclaringType;
             if (controllerType == null)
@@ -31,7 +34,8 @@ namespace CookeRpc.AspNetCore.Model
             }
 
             ParameterExpression contextParam = Expression.Parameter(typeof(RpcContext));
-            var (rpcArguments, methodArguments) = CreateArguments(methodInfo, contextParam, contextType, ArgumentsParam);
+            var (rpcArguments, methodArguments) = CreateArguments(methodInfo, contextParam, contextType, ArgumentsParam,
+                customParameterResolver);
 
             var spExpression = Expression.Property(contextParam, nameof(RpcContext.ServiceProvider));
             var result = CallMethod(methodInfo, spExpression, controllerType, methodArguments);
@@ -76,54 +80,60 @@ namespace CookeRpc.AspNetCore.Model
             var executeExpression =
                 Expression.Lambda<Func<RpcContext, object?[], Task<object>>>(result, contextParam, ArgumentsParam);
 
-            var execute = executeExpression.Compile();
-
-            // Parameter conversion
-            RpcDelegate execDelegate = async context =>
+            var executeLazy = new Lazy<RpcDelegate>(() =>
             {
-                var callArguments = new object?[rpcArguments.Count];
-                for (var i = 0; i < rpcArguments.Count; i++)
+                var execute = executeExpression.Compile();
+
+                // Parameter conversion
+                RpcDelegate execDelegate = async context =>
                 {
-                    ParameterInfo parameterInfo = rpcArguments[i];
-                    var argument = await context.Invocation.ConsumeArgument(parameterInfo.ParameterType);
-                    if (!argument.HasValue)
+                    var callArguments = new object?[rpcArguments.Count];
+                    for (var i = 0; i < rpcArguments.Count; i++)
                     {
-                        if (!parameterInfo.HasDefaultValue)
+                        ParameterInfo parameterInfo = rpcArguments[i];
+                        var argument = await context.Invocation.ConsumeArgument(parameterInfo.ParameterType);
+                        if (!argument.HasValue)
                         {
-                            throw new RpcInvocationException($"Missing parameter '{parameterInfo.Name}'");
+                            if (!parameterInfo.HasDefaultValue)
+                            {
+                                return new RpcError(context.Invocation.Id, Constants.ErrorCodes.BadRequest,
+                                    $"Missing parameter '{parameterInfo.Name}'", null);
+                            }
+
+                            callArguments[i] = parameterInfo.DefaultValue;
                         }
-
-                        callArguments[i] = parameterInfo.DefaultValue;
+                        else
+                        {
+                            callArguments[i] = argument.Value;
+                        }
                     }
-                    else
+
+                    var returnValue = await execute(context, callArguments);
+                    if (returnType == typeof(void))
                     {
-                        callArguments[i] = argument.Value;
+                        return new RpcReturnValue(context.Invocation.Id, new Optional<object?>());
                     }
-                }
 
-                var returnValue = await execute(context, callArguments);
-                if (returnType == typeof(void))
+                    return new RpcReturnValue(context.Invocation.Id, new Optional<object?>(returnValue));
+                };
+
+                // Authorization
+                RpcDelegate authDelegate = async context =>
                 {
-                    return new RpcReturnValue(context.Invocation.Id, new Optional<object?>());
-                }
+                    var authorized = await AuthorizeGuard(methodInfo, context.ServiceProvider, context.User);
+                    if (!authorized)
+                    {
+                        return new RpcError(context.Invocation.Id, Constants.ErrorCodes.AuthorizationError,
+                            "Not authorized", null);
+                    }
 
-                return new RpcReturnValue(context.Invocation.Id, new Optional<object?>(returnValue));
-            };
+                    return await execDelegate(context);
+                };
 
-            // Authorization
-            RpcDelegate authDelegate = async context =>
-            {
-                var authorized = await AuthorizeGuard(methodInfo, context.ServiceProvider, context.User);
-                if (!authorized)
-                {
-                    return new RpcError(context.Invocation.Id, Constants.ErrorCodes.AuthorizationError,
-                        "Not authorized", null);
-                }
+                return authDelegate;
+            });
 
-                return await execDelegate(context);
-            };
-
-            return (authDelegate, rpcArguments, returnType);
+            return (executeLazy, rpcArguments, returnType);
         }
 
         private static Expression CallMethod(MethodInfo methodInfo,
@@ -146,7 +156,8 @@ namespace CookeRpc.AspNetCore.Model
             MethodInfo methodInfo,
             ParameterExpression contextParam,
             Type actualContextType,
-            ParameterExpression argumentsArrayParam)
+            ParameterExpression argumentsArrayParam,
+            Func<ParameterInfo, ParameterResolver?>? parameterResolver) 
         {
             int inputIndex = 0;
             var outerArguments = new List<ParameterInfo>();
@@ -155,25 +166,31 @@ namespace CookeRpc.AspNetCore.Model
             {
                 if (parameterInfo.ParameterType.IsAssignableTo(typeof(RpcContext)))
                 {
-                    if (actualContextType.IsAssignableTo(parameterInfo.ParameterType))
-                    {
-                        methodArguments.Add(Expression.Convert(contextParam, parameterInfo.ParameterType));
-                    }
-                    else
+                    if (!actualContextType.IsAssignableTo(parameterInfo.ParameterType))
                     {
                         throw new ArgumentException(
-                            $"Parameter of type {parameterInfo.ParameterType.Name} is not compatible with context of type {actualContextType.Name}");
+                            $"Parameter of type {parameterInfo.ParameterType.Name} is not compatible with context of type {actualContextType.Name} in method {methodInfo}");
                     }
+
+                    methodArguments.Add(Expression.Convert(contextParam, parameterInfo.ParameterType));
+                    continue;
                 }
-                else
+
+                var resolver = parameterResolver?.Invoke(parameterInfo);
+                if (resolver != null)
                 {
-                    var inputArg =
-                        Expression.Convert(Expression.ArrayIndex(argumentsArrayParam, Expression.Constant(inputIndex)),
-                            parameterInfo.ParameterType);
-                    methodArguments.Add(inputArg);
-                    outerArguments.Add(parameterInfo);
-                    inputIndex++;
+                    methodArguments.Add(Expression.Convert(
+                        Expression.Invoke(Expression.Constant(resolver), contextParam),
+                        parameterInfo.ParameterType));
+                    continue;
                 }
+
+                var inputArg =
+                    Expression.Convert(Expression.ArrayIndex(argumentsArrayParam, Expression.Constant(inputIndex)),
+                        parameterInfo.ParameterType);
+                methodArguments.Add(inputArg);
+                outerArguments.Add(parameterInfo);
+                inputIndex++;
             }
 
             return (outerArguments, methodArguments);
@@ -185,7 +202,7 @@ namespace CookeRpc.AspNetCore.Model
             {
                 return true;
             }
-            
+
             var authData = methodInfo.GetCustomAttributes<AuthorizeAttribute>()
                 .Concat(methodInfo.DeclaringType!.GetCustomAttributes<AuthorizeAttribute>()).Cast<IAuthorizeData>();
 
@@ -215,17 +232,6 @@ namespace CookeRpc.AspNetCore.Model
             public const string ProcedureNotFound = "procedure_not_found";
             public const string BadRequest = "bad_request";
             public const string ServerError = "server_error";
-        }
-    }
-
-    public class RpcInvocationException : Exception
-    {
-        public RpcInvocationException(string? message) : base(message)
-        {
-        }
-
-        public RpcInvocationException(string? message, Exception? innerException) : base(message, innerException)
-        {
         }
     }
 

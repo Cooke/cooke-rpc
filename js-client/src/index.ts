@@ -1,5 +1,5 @@
 import { typedJsonReplacer, typedJsonReviver } from "./json";
-import { RpcError, RpcInvocation } from "./types";
+import { RpcError, RpcInvocation, RpcInvoker } from "./types";
 
 export * from "./json";
 export * from "./types";
@@ -85,4 +85,18 @@ function isRpcResponse(response: any): response is RpcJsonResponse<any> {
   }
 
   return true;
+}
+
+export function createRpcInvoker<
+  TService extends string,
+  TProc extends string,
+  TArgs extends any[],
+  TReturn
+>(service: TService, proc: TProc): RpcInvoker<TArgs, TReturn> {
+  const func = function (...args: TArgs): RpcInvocation<TReturn> {
+    return { service, proc, args: args };
+  };
+  func.service = service;
+  func.proc = proc;
+  return func;
 }

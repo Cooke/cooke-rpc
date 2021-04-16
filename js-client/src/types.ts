@@ -21,3 +21,9 @@ export type RpcReturnType<
 export interface RpcDispatcher {
   <TResult>(invocation: RpcInvocation<TResult>): Promise<TResult>;
 }
+
+export type RpcInvoker<TArgs extends any[], TReturn> = {
+  (...args: TArgs): RpcInvocation<TReturn>;
+  service: string;
+  proc: string;
+}

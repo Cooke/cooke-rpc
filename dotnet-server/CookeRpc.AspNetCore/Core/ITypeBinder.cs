@@ -7,5 +7,10 @@ namespace CookeRpc.AspNetCore.Core
         string GetName(Type type);
 
         Type ResolveType(string typeName, Type targetType);
+
+        bool ShouldResolveType(Type targetType)
+        {
+            return false;
+        }
     }
 }

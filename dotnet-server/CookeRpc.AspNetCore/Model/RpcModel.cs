@@ -11,10 +11,9 @@ namespace CookeRpc.AspNetCore.Model
     public class RpcModel
     {
         private readonly RpcModelOptions _options;
-        private readonly List<RpcTypeDefinition> _typesDefinitions;
-        private readonly Dictionary<Type, RpcType> _typesByClrType;
-        private readonly Dictionary<string, RpcType> _typesByName;
-        private readonly List<RpcServiceModel> _services = new();
+        private readonly List<RpcTypeDefinition> _typesDefinitions = new();
+        private readonly Dictionary<Type, RpcType> _typeMap = new();
+        private readonly Dictionary<Type, RpcServiceModel> _services = new();
 
         public RpcModel() : this(new RpcModelOptions())
         {
@@ -23,142 +22,205 @@ namespace CookeRpc.AspNetCore.Model
         public RpcModel(RpcModelOptions options)
         {
             _options = options;
-            _typesByClrType = options.InitialTypeMap.ToDictionary(x => x.Key, x => x.Value);
-            _typesByName = _typesByClrType.Values.Where(x => x.Name is not null).Distinct().ToDictionary(x => x.Name!);
-            _typesDefinitions = options.InitialTypeDefinitions.ToList();
         }
 
         public IReadOnlyCollection<RpcTypeDefinition> TypesDefinitions => _typesDefinitions;
 
-        public IReadOnlyCollection<RpcServiceModel> Services => _services;
+        public IReadOnlyCollection<RpcServiceModel> Services => _services.Values;
 
-        public RpcType AddType(Type type)
+        public IReadOnlyDictionary<Type, RpcType> MappedTypes => _typeMap;
+        
+        public RpcType MapType(Type clrType)
         {
-            if (!_options.TypeFilter(type))
+            var knownType = _typeMap.GetValueOrDefault(clrType);
+            if (knownType != null)
             {
-                throw new InvalidOperationException("Type cannot be added due to the type filter");
+                return knownType;
             }
 
-            if (_typesByClrType.TryGetValue(type, out var tsType))
+            if (!_options.TypeFilter(clrType))
             {
-                return tsType;
+                throw new InvalidOperationException("Type cannot be mapped due to the type filter configuration");
+            }
+            
+            var customRpcType = _options.CustomTypeResolver(clrType);
+            if (customRpcType != null)
+            {
+                _typeMap.Add(clrType, customRpcType);
+                return customRpcType;
+            }
+            
+            var customDefinition = _options.CustomTypeDefiner(clrType);
+            if (customDefinition != null)
+            {
+                return AddTypeDefinition(customDefinition);
             }
 
-            var genericDictionary = ReflectionHelper.GetGenericTypeOfDefinition(type, typeof(IDictionary<,>)) ??
-                                    ReflectionHelper.GetGenericTypeOfDefinition(type, typeof(IReadOnlyDictionary<,>));
+            var defaultRpcType = _options.CustomDefaultTypeMap.GetValueOrDefault(clrType);
+            if (defaultRpcType != null)
+            {
+                _typeMap.Add(clrType, defaultRpcType);
+                return defaultRpcType;
+            }
+
+            var genericDictionary = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IDictionary<,>)) ??
+                                    ReflectionHelper.GetGenericTypeOfDefinition(clrType,
+                                        typeof(IReadOnlyDictionary<,>));
             if (genericDictionary != null)
             {
                 var keyType = genericDictionary.GenericTypeArguments[0];
                 var valueType = genericDictionary.GenericTypeArguments[1];
-                return new GenericType(NativeType.Map, new[] {AddType(keyType), AddType(valueType)});
+                var typeArguments = new List<RpcType>();
+                var genericType = new GenericType(NativeType.Map,
+                    typeArguments);
+                _typeMap.Add(clrType, genericType);
+                typeArguments.AddRange(new[] {MapType(keyType), MapType(valueType)});
+                return genericType;
             }
 
-            var genericArray = ReflectionHelper.GetGenericTypeOfDefinition(type, typeof(IEnumerable<>));
-            if (genericArray != null)
+            var genericClrArray = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IEnumerable<>));
+            if (genericClrArray != null)
             {
-                return new GenericType(NativeType.Array, new[] {AddType(genericArray.GenericTypeArguments[0])});
+                var typeArguments = new List<RpcType>();
+                var genericType = new GenericType(NativeType.Array, typeArguments);
+                _typeMap.Add(clrType, genericType);
+                typeArguments.Add(MapType(genericClrArray.GenericTypeArguments[0]));
+                return genericType;
             }
 
-            var genericNullable = ReflectionHelper.GetGenericTypeOfDefinition(type, typeof(Nullable<>));
+            var genericNullable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Nullable<>));
             if (genericNullable != null)
             {
-                return new UnionType(new[] {NativeType.Null, AddType(genericNullable.GetGenericArguments().Single())});
+                var typeArguments = new List<RpcType> {NativeType.Null };
+                var unionType = new UnionType(typeArguments);
+                _typeMap.Add(clrType, unionType);
+                typeArguments.Add(MapType(genericNullable.GetGenericArguments().Single()));
+                return unionType;
             }
 
-            var optional = ReflectionHelper.GetGenericTypeOfDefinition(type, typeof(Optional<>));
+            var optional = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Optional<>));
             if (optional != null)
             {
-                return new GenericType(NativeType.Optional, new[] {AddType(optional.GetGenericArguments().Single())});
+                var typeArguments = new List<RpcType>();
+                var genericType = new GenericType(NativeType.Optional, typeArguments);
+                _typeMap.Add(clrType, genericType);
+                typeArguments.Add(MapType(optional.GetGenericArguments().Single()));
+                return genericType;
+            }
+            
+            if (clrType.IsInterface)
+            {
+                return DefineUnion(clrType);
             }
 
-            if (type.IsInterface)
+            if (clrType.IsClass)
             {
-                return AddUnion(type);
-            }
-
-            if (type.IsClass)
-            {
-                if (type.IsAbstract)
+                if (clrType.IsAbstract)
                 {
-                    return AddUnion(type);
+                    return DefineUnion(clrType);
                 }
 
-                return AddContract(type);
+                return DefineComplex(clrType);
             }
 
-            if (type.IsEnum)
+            if (clrType.IsEnum)
             {
-                return AddEnum(type);
+                return DefineEnum(clrType);
             }
 
-            throw new ArgumentException($"Invalid type {type}");
+            throw new ArgumentException($"Invalid type {clrType}");
+        }
+        
+        public void AddService(Type rpcControllerType)
+        {
+            if (_services.ContainsKey(rpcControllerType))
+            {
+                return;
+            }
+
+            var serviceName = _options.ServiceNameFormatter(rpcControllerType);
+
+            var procedures = new List<RpcProcedureModel>();
+            var serviceModel = new RpcServiceModel(rpcControllerType, serviceName, procedures);
+
+            var methods = rpcControllerType.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(x => x.DeclaringType != typeof(object));
+
+            foreach (var method in methods)
+            {
+                var (rpcDelegate, parameterInfos, returnType) =
+                    RpcDelegateFactory.Create(method, _options.ContextType, _options.CustomParameterResolver);
+
+                List<RpcParameterModel> rpcParameterModels = new();
+                foreach (var parameterInfo in parameterInfos)
+                {
+                    var paraType = ReflectionHelper.IsNullable(parameterInfo)
+                        ? new UnionType(new[] {NativeType.Null, MapType(parameterInfo.ParameterType)})
+                        : MapType(parameterInfo.ParameterType);
+
+                    var paraModel = new RpcParameterModel(parameterInfo.Name ?? throw new InvalidOperationException(),
+                        paraType,
+                        parameterInfo.HasDefaultValue);
+
+                    rpcParameterModels.Add(paraModel);
+                }
+
+                var rpcReturnType = MapType(returnType);
+                var returnTypeModel = ReflectionHelper.IsNullableReturn(method)
+                    ? new UnionType(new[] {NativeType.Null, rpcReturnType})
+                    : rpcReturnType;
+
+                var procModel = new RpcProcedureModel(method.Name, rpcDelegate, returnTypeModel, rpcParameterModels);
+
+                procedures.Add(procModel);
+            }
+
+            _services.Add(rpcControllerType, serviceModel);
         }
 
-        private RpcType AddType(RpcTypeDefinition typeDefinition)
+        private RpcType AddTypeDefinition(RpcTypeDefinition typeDefinition)
         {
             var customType = new CustomType(typeDefinition);
-
             _typesDefinitions.Add(typeDefinition);
-            _typesByClrType.Add(typeDefinition.ClrType, customType);
-            _typesByName.Add(typeDefinition.Name, customType);
-
+            _typeMap.Add(typeDefinition.ClrType, customType);
             return customType;
         }
 
-        public RpcType AddScalarType(Type type, RpcType implementationType)
-        {
-            return AddType(new RpcScalarDefinition(_options.TypeNameFormatter(type), type, implementationType));
-        }
-
-        private RpcType AddContract(Type type)
+        private RpcType DefineComplex(Type type)
         {
             var props = new List<RpcPropertyDefinition>();
             var extenders = new List<RpcType>();
             var typeDefinition = new RpcComplexDefinition(_options.TypeNameFormatter(type), type, props, extenders);
-            var customType = new CustomType(typeDefinition);
-
-            _typesDefinitions.Add(typeDefinition);
-            _typesByClrType.Add(typeDefinition.ClrType, customType);
-            _typesByName.Add(typeDefinition.Name, customType);
+            var customType = AddTypeDefinition(typeDefinition);
 
             extenders.AddRange(ReflectionHelper.FindAllOfType(type).Except(new[] {type}).Where(_options.TypeFilter)
-                .Select(AddContract));
+                .Select(DefineComplex));
             props.AddRange(CreatePropertyDefinitions(type).OrderBy(x => x.Name));
 
             return customType;
         }
 
-        private RpcType AddUnion(Type type)
+        private RpcType DefineUnion(Type type)
         {
             var memberTypes = new List<RpcType>();
             var name = _options.TypeNameFormatter(type);
             var typeDefinition = new RpcUnionDefinition(name, type, memberTypes);
-            var customType = new CustomType(typeDefinition);
-
-            _typesDefinitions.Add(typeDefinition);
-            _typesByClrType.Add(typeDefinition.ClrType, customType);
-
+            var customType = AddTypeDefinition(typeDefinition);
             memberTypes.AddRange(ReflectionHelper.FindAllOfType(type).Except(new[] {type}).Where(_options.TypeFilter)
-                .Select(AddType));
-
+                .Select(MapType));
             return customType;
         }
 
-        private RpcType AddEnum(Type type)
+        private RpcType DefineEnum(Type type)
         {
-            var typeDefinition = new RpcEnumDefinition(_options.TypeNameFormatter(type), type,
+            var typeDefinition = new RpcEnumDefinition(_options.TypeNameFormatter(type),
+                type,
                 Enum.GetNames(type).Zip(Enum.GetValues(type).Cast<int>(),
                     (name, val) => new RpcEnumMember(_options.EnumMemberNameFormatter(name), val)).ToList());
-            var customType = new CustomType(typeDefinition);
-
-            _typesDefinitions.Add(typeDefinition);
-            _typesByClrType.Add(typeDefinition.ClrType, customType);
-            _typesByName.Add(typeDefinition.Name, customType);
-
-            return customType;
+            return AddTypeDefinition(typeDefinition);
         }
 
-        private List<RpcPropertyDefinition> CreatePropertyDefinitions(Type type)
+        private IEnumerable<RpcPropertyDefinition> CreatePropertyDefinitions(Type type)
         {
             var memberInfos = type.GetMembers(_options.MemberBindingFilter).Where(_options.MemberFilter);
 
@@ -166,11 +228,12 @@ namespace CookeRpc.AspNetCore.Model
 
             RpcPropertyDefinition CreatePropertyModel(Type propertyInfoPropertyType1, MemberInfo memberInfo)
             {
-                var propTypeRef = AddType(propertyInfoPropertyType1);
+                var propTypeRef = MapType(propertyInfoPropertyType1);
                 var propertyDefinition = new RpcPropertyDefinition(_options.MemberNameFormatter(memberInfo),
                     _options.IsMemberNullable(memberInfo)
                         ? new UnionType(new[] {NativeType.Null, propTypeRef})
-                        : propTypeRef, memberInfo) {IsOptional = _options.IsMemberOptional(memberInfo),};
+                        : propTypeRef,
+                    memberInfo) {IsOptional = _options.IsMemberOptional(memberInfo),};
                 return propertyDefinition;
             }
 
@@ -197,53 +260,6 @@ namespace CookeRpc.AspNetCore.Model
             }
 
             return props;
-        }
-
-        public void AddService(Type rpcControllerType)
-        {
-            var serviceName = _options.ServiceNameFormatter(rpcControllerType);
-
-            var procedures = new List<RpcProcedureModel>();
-            var serviceModel = new RpcServiceModel(serviceName, procedures);
-
-            var methods = rpcControllerType.GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                .Where(x => x.DeclaringType != typeof(object));
-
-            foreach (var method in methods)
-            {
-                var (rpcDelegate, parameterInfos, returnType) = RpcDelegateFactory.Create(method, _options.ContextType);
-
-                List<RpcParameterModel> rpcParameterModels = new();
-                foreach (var parameterInfo in parameterInfos)
-                {
-                    var paraType = AddType(parameterInfo.ParameterType);
-                    var paraModel = new RpcParameterModel(parameterInfo.Name ?? throw new InvalidOperationException(),
-                        paraType, parameterInfo.HasDefaultValue);
-
-                    rpcParameterModels.Add(paraModel);
-                }
-
-                var rpcReturnType = AddType(returnType);
-                var returnTypeModel = ReflectionHelper.IsNullableReturn(method)
-                    ? new UnionType(new[] {NativeType.Null, rpcReturnType})
-                    : rpcReturnType;
-
-                var procModel = new RpcProcedureModel(method.Name, rpcDelegate, returnTypeModel, rpcParameterModels);
-
-                procedures.Add(procModel);
-            }
-
-            _services.Add(serviceModel);
-        }
-
-        public RpcType? GetType(string typeName)
-        {
-            return _typesByName.GetValueOrDefault(typeName);
-        }
-
-        public RpcType? GetType(Type clrType)
-        {
-            return _typesByClrType.GetValueOrDefault(clrType);
         }
     }
 }

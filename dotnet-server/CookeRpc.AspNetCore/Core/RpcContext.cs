@@ -35,16 +35,16 @@ namespace CookeRpc.AspNetCore.Core
 
     public class HttpRpcContext : RpcContext
     {
-        public HttpContext HttpContent { get; }
+        public HttpContext HttpContext { get; }
 
         public HttpRpcContext(IServiceProvider serviceProvider,
             CancellationToken cancellationToken,
             ClaimsPrincipal user,
             ReadOnlyDictionary<object, object?> items,
             RpcInvocation invocation,
-            HttpContext httpContent) : base(serviceProvider, cancellationToken, user, items, invocation)
+            HttpContext httpContext) : base(serviceProvider, cancellationToken, user, items, invocation)
         {
-            HttpContent = httpContent;
+            HttpContext = httpContext;
         }
     }
 }

@@ -107,7 +107,14 @@ export function useRpcFetch<
 >(action: TRpc, ...args: Parameters<TRpc>): RpcFetchHookResult<TRpc> {
   const [fetched, setQueried] = useState(false);
   const [willFetch, setWillFetch] = useState(true);
-  const { invoking, result: returnValue, error, invoke } = useRpc(action);
+  const {
+    invoking,
+    result: returnValue,
+    error,
+    invoke,
+    setResult,
+    setError,
+  } = useRpc(action);
 
   useEffect(
     () => {
@@ -125,6 +132,8 @@ export function useRpcFetch<
     error,
     refetch: invoke,
     fetched,
+    setResult,
+    setError,
   };
 }
 
@@ -136,4 +145,8 @@ export type RpcFetchHookResult<
   result?: RpcReturnType<TRpc>;
   refetch: (...args: Parameters<TRpc>) => Promise<RpcReturnType<TRpc>>;
   fetched: boolean;
+  setResult: React.Dispatch<
+    React.SetStateAction<RpcReturnType<TRpc> | undefined>
+  >;
+  setError: React.Dispatch<React.SetStateAction<RpcError | undefined>>;
 };

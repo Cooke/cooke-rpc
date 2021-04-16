@@ -49,6 +49,14 @@ namespace CookeRpc.Tests
             Assert.Equal("string", Assert.IsType<NativeType>(proc.ReturnType).Name);
         }
 
+        [Fact]
+        public void Shall_Model_Nullable_Parameter()
+        {
+            var serviceModel = _model.Services.First();
+            var nullableParameter = serviceModel.Procedures.Single(x => x.Name == "DoStringOrNull").Parameters.First();
+            AssertNullable(nullableParameter.Type);
+        }
+
         private static void AssertNullable(RpcType type)
         {
             Assert.Contains(Assert.IsType<UnionType>(type).Types, t => t.Name == "null");
@@ -66,6 +74,10 @@ namespace CookeRpc.Tests
             public Task<string> GetStringTask() => Task.FromResult("");
 
             public RpcResult GetResult() => new SuccessResult();
+
+            public void DoStringOrNull(string? str)
+            {
+            }
         }
 
         [RpcType(Name = "Result")]
@@ -76,7 +88,7 @@ namespace CookeRpc.Tests
         public class SuccessResult : RpcResult
         {
         }
-        
+
         public class FailResult : RpcResult
         {
         }

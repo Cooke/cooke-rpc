@@ -14,6 +14,8 @@ namespace CookeRpc.AspNetCore.Utils
 
         public T Value => HasValue ? _value : throw new InvalidOperationException("Optional does not have a value ");
 
+        public static readonly Optional<T> Empty = new();
+
         public bool HasValue { get; }
     }
 }
