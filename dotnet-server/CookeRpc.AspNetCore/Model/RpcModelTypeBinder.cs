@@ -39,7 +39,8 @@ namespace CookeRpc.AspNetCore.Model
 
         public bool ShouldResolveType(Type targetType)
         {
-            return _rpcModel.TypesDefinitions.Count(x => x.ClrType.IsAssignableTo(targetType)) > 1;
+            return _rpcModel.TypesDefinitions.Count(x => x.ClrType.IsAssignableTo(targetType)) > 1 ||
+                   _rpcModel.TypesDefinitions.Count(x => x.ClrType.IsAssignableFrom(targetType)) > 1;
         }
 
         private JsonRpcTypeRef Parse(string typeName)

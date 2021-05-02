@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -41,6 +42,19 @@ namespace CookeRpc.Tests
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},\"Hello!\"]", await response.Content.ReadAsStringAsync());
+        }
+        
+        [Fact]
+        public async Task InvokeAdvanced()
+        {
+            var client = _host.GetTestClient();
+            var response = await client.PostAsync("/rpc",
+                new StringContent(
+                    @"[{""id"":""123"",""service"":""TestController"",""proc"":""EchoFruit""},{""$type"":""Banana""}]"));
+            
+            response.EnsureSuccessStatusCode();
+
+            Assert.Equal("[{\"id\":\"123\"},{\"$type\":\"Banana\"}]", await response.Content.ReadAsStringAsync());
         }
 
         [Fact]

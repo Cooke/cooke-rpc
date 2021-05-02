@@ -11,7 +11,12 @@ namespace CookeRpc.AspNetCore.JsonSerialization
     {
         public static T ReadObjectProperties<T>(ref Utf8JsonReader reader, JsonSerializerOptions options, Type clrType)
         {
-            var ctor = clrType.GetConstructors().First();
+            var ctor = clrType.GetConstructors().FirstOrDefault();
+            if (ctor == null)
+            {
+                throw new Exception($"Cannot create an instance of {clrType}");
+            }
+            
             var ctorParameters = ctor.GetParameters()
                 .ToDictionary(x => x.Name ?? throw new NotSupportedException("Unnamed parameters are not supported"),
                     StringComparer.OrdinalIgnoreCase);

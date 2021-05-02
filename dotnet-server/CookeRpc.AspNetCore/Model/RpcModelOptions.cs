@@ -75,5 +75,8 @@ namespace CookeRpc.AspNetCore.Model
         public Func<Type, RpcTypeDefinition?> CustomTypeDefiner { get; init; } = _ => null;
         
         public Func<Type, RpcType?> CustomTypeResolver { get; init; } = _ => null;
+
+        public Func<MemberInfo, string> ProcedureNameFormatter { get; init; } = x => x.Name;
+
     }
 }

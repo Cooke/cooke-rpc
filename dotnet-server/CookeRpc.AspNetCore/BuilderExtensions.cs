@@ -46,7 +46,7 @@ namespace CookeRpc.AspNetCore
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, RpcModel model, string path = "/rpc")
         {
-            var serializer = new JsonRpcSerializer(new RpcModelTypeBinder(model));
+            var serializer = new SystemTextJsonRpcSerializer(new RpcModelTypeBinder(model));
             return UseRpc(app, model, serializer, path);
         }
 

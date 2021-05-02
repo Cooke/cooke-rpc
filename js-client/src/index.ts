@@ -1,4 +1,3 @@
-import { typedJsonReplacer, typedJsonReviver } from "./json";
 import { RpcError, RpcInvocation, RpcInvoker } from "./types";
 
 export * from "./json";
@@ -38,7 +37,7 @@ export async function sendJsonRpc<TResult>(
     { id, service: invocation.service, proc: invocation.proc },
     ...invocation.args,
   ];
-  const invocationJson = JSON.stringify(transportInvocation, typedJsonReplacer);
+  const invocationJson = JSON.stringify(transportInvocation);
 
   let responseJson;
   try {
@@ -53,7 +52,7 @@ export async function sendJsonRpc<TResult>(
 
   let rpcResponse: any;
   try {
-    rpcResponse = JSON.parse(responseJson, typedJsonReviver);
+    rpcResponse = JSON.parse(responseJson);
   } catch (error) {
     throw new RpcError(rpcErrorCodes.responseFormatError);
   }

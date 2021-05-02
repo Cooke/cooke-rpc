@@ -63,12 +63,6 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             }
 
             var runtimeType = value.GetType();
-            if (!runtimeType.IsClass ||  runtimeType.IsAssignableTo(typeof(IEnumerable)) || runtimeType.IsAssignableTo(typeof(string)))
-            {
-                JsonSerializer.Serialize(writer, value, runtimeType, options);
-                return;
-            }
-            
             writer.WriteStartObject();
             writer.WritePropertyName("$type");
             writer.WriteStringValue(_typeBinder.GetName(runtimeType));

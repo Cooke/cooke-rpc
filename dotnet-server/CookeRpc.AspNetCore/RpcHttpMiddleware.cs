@@ -97,10 +97,7 @@ namespace CookeRpc.AspNetCore
 
                 await context.Request.BodyReader.CompleteAsync();
 
-                var pipeWriter = PipeWriter.Create(context.Response.Body, new StreamPipeWriterOptions(leaveOpen: true));
-                _rpcSerializer.Serialize(response, pipeWriter);
-                await pipeWriter.FlushAsync();
-                await pipeWriter.CompleteAsync();
+                _rpcSerializer.Serialize(response, context.Response.BodyWriter);
             }
             finally
             {
