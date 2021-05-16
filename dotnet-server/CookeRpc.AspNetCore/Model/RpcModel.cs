@@ -50,7 +50,7 @@ namespace CookeRpc.AspNetCore.Model
                 return customRpcType;
             }
             
-            var customDefinition = _options.CustomTypeDefiner(clrType);
+            var customDefinition = _options.CustomTypeDefiner(clrType, this);
             if (customDefinition != null)
             {
                 return AddTypeDefinition(customDefinition);

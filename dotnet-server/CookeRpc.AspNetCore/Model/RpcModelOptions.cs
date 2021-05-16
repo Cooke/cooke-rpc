@@ -72,7 +72,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public Func<ParameterInfo, ParameterResolver?>? CustomParameterResolver { get; init; } = null;
 
-        public Func<Type, RpcTypeDefinition?> CustomTypeDefiner { get; init; } = _ => null;
+        public Func<Type, RpcModel, RpcTypeDefinition?> CustomTypeDefiner { get; init; } = (_, _) => null;
         
         public Func<Type, RpcType?> CustomTypeResolver { get; init; } = _ => null;
 
