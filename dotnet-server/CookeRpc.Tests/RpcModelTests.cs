@@ -56,6 +56,16 @@ namespace CookeRpc.Tests
             var nullableParameter = serviceModel.Procedures.Single(x => x.Name == "DoStringOrNull").Parameters.First();
             AssertNullable(nullableParameter.Type);
         }
+        
+        [Fact]
+        public void Shall_Model_Tuples()
+        {
+            var serviceModel = _model.Services.First();
+            var returnType = serviceModel.Procedures.Single(x => x.Name == "GetPos").ReturnType;
+            var genericType = Assert.IsType<GenericType>(returnType);
+            Assert.Equal(genericType.InnerType, NativeType.Tuple);
+            Assert.IsType<NativeType>(genericType.TypeArguments.First());
+        }
 
         private static void AssertNullable(RpcType type)
         {
@@ -74,6 +84,8 @@ namespace CookeRpc.Tests
             public Task<string> GetStringTask() => Task.FromResult("");
 
             public RpcResult GetResult() => new SuccessResult();
+
+            public (int x, string y) GetPos() => (0, "0");
 
             public void DoStringOrNull(string? str)
             {

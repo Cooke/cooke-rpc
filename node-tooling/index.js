@@ -174,6 +174,9 @@ function formatType(type) {
         case "array":
           return `Array<${type.typeArguments.map(formatType).join(",")}>`;
 
+        case "tuple":
+          return `[${type.typeArguments.map(formatType).join(",")}]`;
+
         case "optional":
           return `${type.typeArguments.map(formatType).join(",")} | undefined`;
 

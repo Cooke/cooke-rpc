@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
 using CookeRpc.AspNetCore.Utils;
@@ -126,6 +127,14 @@ namespace CookeRpc.AspNetCore.Model
             if (clrType.IsEnum)
             {
                 return DefineEnum(clrType);
+            }
+
+            if (clrType.IsAssignableTo(typeof(ITuple))) {
+                var typeArguments = new List<RpcType>();
+                var genericType = new GenericType(NativeType.Tuple, typeArguments);
+                _typeMap.Add(clrType, genericType);
+                typeArguments.AddRange(clrType.GenericTypeArguments.Select(MapType));
+                return genericType;
             }
 
             throw new ArgumentException($"Invalid type {clrType}");

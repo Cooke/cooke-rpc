@@ -9,6 +9,7 @@
         public static NativeType Void { get; } = new("void");
         public static NativeType Map { get; } = new("map");
         public static NativeType Array { get; } = new("array");
+        public static NativeType Tuple { get; } = new("tuple");
         public static NativeType Optional { get; } = new("optional");
         public static NativeType Any { get; } = new("any");
 

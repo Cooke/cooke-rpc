@@ -74,7 +74,7 @@ namespace CookeRpc.AspNetCore.Model
             {
                 var cmdCall = result;
                 var fromResult = typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(typeof(object));
-                result = Expression.Call(fromResult, cmdCall);
+                result = Expression.Call(fromResult, Expression.Convert(cmdCall, typeof(object)));
             }
 
             var executeExpression =
