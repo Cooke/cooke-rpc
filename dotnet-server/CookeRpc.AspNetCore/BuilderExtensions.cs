@@ -20,7 +20,7 @@ namespace CookeRpc.AspNetCore
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, string path = "/rpc")
         {
-            var model = new RpcModel(new() {ContextType = typeof(HttpContent)});
+            var model = new RpcModel(new() {ContextType = typeof(HttpRpcContext)});
             model.AddRpcServicesByAttribute();
             return UseRpc(app, model, path);
         }
