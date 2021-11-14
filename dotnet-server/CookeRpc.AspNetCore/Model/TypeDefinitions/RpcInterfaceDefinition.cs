@@ -1,21 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
+using CookeRpc.AspNetCore.Model.Types;
 
 namespace CookeRpc.AspNetCore.Model.TypeDefinitions
 {
-    public class RpcComplexDefinition : RpcTypeDefinition
+    public class RpcInterfaceDefinition : RpcTypeDefinition
     {
-        public RpcComplexDefinition(string name,
+        public RpcInterfaceDefinition(string name,
             Type clrType,
             IReadOnlyCollection<RpcPropertyDefinition> properties,
-            IReadOnlyCollection<Types.RpcType> extenders) : base(name, clrType)
+            IReadOnlyCollection<RpcType> interfaces) : base(name, clrType)
         {
             Properties = properties;
-            Extenders = extenders;
+            Interfaces = interfaces;
         }
 
         public IReadOnlyCollection<RpcPropertyDefinition> Properties { get; }
         
-        public IReadOnlyCollection<Types.RpcType> Extenders { get; }
+        public IReadOnlyCollection<RpcType> Interfaces { get; }
     }
 }

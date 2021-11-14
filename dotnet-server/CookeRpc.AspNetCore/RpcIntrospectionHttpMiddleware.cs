@@ -45,8 +45,7 @@ namespace CookeRpc.AspNetCore
 
         public async Task InvokeAsync(HttpContext context)
         {
-            if (!context.Request.Path.StartsWithSegments(_options.Path))
-            {
+            if (!context.Request.Path.StartsWithSegments(_options.Path)) {
                 await _next(context);
                 return;
             }
@@ -56,55 +55,44 @@ namespace CookeRpc.AspNetCore
 
         private async Task ProcessIntrospectionRequest(HttpContext context)
         {
-            static object GetIntrospectionType(RpcType t)
-            {
-                return t switch
-                {
-                    UnionType unionType => new
-                    {
-                        category = "union", types = unionType.Types.Select(GetIntrospectionType)
-                    },
-                    NativeType nativeType => new {category = "native", name = nativeType.Name},
-                    GenericType genericType => new
-                    {
-                        name = genericType.Name,
-                        category = "generic",
-                        typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
-                    },
-                    _ => new {category = "custom", name = t.Name}
-                };
-            }
-
             await context.Response.WriteAsJsonAsync(new
             {
                 types = _model.TypesDefinitions.Select(x => (object) (x switch
                 {
                     RpcEnumDefinition e => new
                     {
-                        category = "enum",
+                        kind = "enum",
                         x.Name,
-                        members = e.Members.Select(m => new {name = m.Name, value = m.Value})
+                        members = e.Members.Select(m => new
+                        {
+                            name = m.Name,
+                            value = m.Value
+                        })
                     },
                     RpcUnionDefinition union => new
                     {
-                        category = "union", x.Name, types = union.Types.Select(GetIntrospectionType)
-                    },
-                    RpcComplexDefinition complex => new
-                    {
-                        category = "complex",
+                        kind = "union",
                         x.Name,
-                        properties =
-                            complex.Properties.Select(p => new
-                            {
-                                p.Name,
-                                Type = GetIntrospectionType(p.Type),
-                                optional = (bool?) (p.IsOptional ? true : null)
-                            }),
-                        extenders = complex.Extenders.Any() ? complex.Extenders.Select(GetIntrospectionType) : null
+                        types = union.Types.Select(GetIntrospectionType)
+                    },
+                    RpcInterfaceDefinition inter => new
+                    {
+                        kind = "interface",
+                        x.Name,
+                        properties = inter.Properties.Count == 0 ? null : inter.Properties.Select(GetIntrospectionProperty),
+                        interfaces = inter.Interfaces.Count == 0 ? null : inter.Interfaces.Select(GetIntrospectionType)
+                    },
+                    RpcObjectDefinition obj => new
+                    {
+                        kind = "object",
+                        x.Name,
+                        @base = obj.Base != null ? GetIntrospectionType(obj.Base) : null,
+                        properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
+                        interfaces = obj.Interfaces.Count == 0 ? null : obj.Interfaces.Select(GetIntrospectionType)
                     },
                     RpcScalarDefinition scalar => new
                     {
-                        category = "scalar",
+                        kind = "scalar",
                         x.Name,
                         ImplementationType = GetIntrospectionType(scalar.ImplementationType)
                     },
@@ -117,11 +105,40 @@ namespace CookeRpc.AspNetCore
                     {
                         p.Name,
                         returnType = GetIntrospectionType(p.ReturnType),
-                        parameters = p.Parameters.Select(pa =>
-                            new {pa.Name, type = GetIntrospectionType(pa.Type)})
+                        parameters = p.Parameters.Select(pa => new
+                        {
+                            pa.Name,
+                            type = GetIntrospectionType(pa.Type)
+                        })
                     })
                 })
             }, _introspectionSerializerOptions);
+
+            static object GetIntrospectionType(RpcType t) =>
+                t switch
+                {
+                    UnionType unionType => new
+                    {
+                        kind = "union",
+                        types = unionType.Types.Select(GetIntrospectionType)
+                    },
+                    GenericType genericType => new
+                    {
+                        kind = "generic",
+                        name = genericType.Name,
+                        typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
+                    },
+                    RefType {Name: { }} refType => refType.Name,
+                    _ => throw new NotSupportedException()
+                };
+
+            static object GetIntrospectionProperty(RpcPropertyDefinition p) =>
+                new
+                {
+                    p.Name,
+                    Type = GetIntrospectionType(p.Type),
+                    optional = (bool?) (p.IsOptional ? true : null)
+                };
         }
     }
 }

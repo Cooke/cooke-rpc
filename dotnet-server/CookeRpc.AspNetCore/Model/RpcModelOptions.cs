@@ -14,23 +14,26 @@ namespace CookeRpc.AspNetCore.Model
     {
         public static readonly ImmutableDictionary<Type, RpcType> DefaultTypeMap = new Dictionary<Type, RpcType>
         {
-            {typeof(void), NativeType.Void},
-            {typeof(string), NativeType.String},
-            {typeof(int), NativeType.Number},
-            {typeof(long), NativeType.Number},
-            {typeof(ulong), NativeType.Number},
-            {typeof(uint), NativeType.Number},
-            {typeof(short), NativeType.Number},
-            {typeof(ushort), NativeType.Number},
-            {typeof(float), NativeType.Number},
-            {typeof(double), NativeType.Number},
-            {typeof(bool), NativeType.Boolean},
-            {typeof(TimeSpan), NativeType.String},
-            {typeof(DateTime), NativeType.String},
-            {typeof(DateTimeOffset), NativeType.String},
-            {typeof(decimal), NativeType.Number},
-            {typeof(object), NativeType.Any}
+            {typeof(void), NativeTypes.Void},
+            {typeof(string), NativeTypes.String},
+            {typeof(int), NativeTypes.Number},
+            {typeof(long), NativeTypes.Number},
+            {typeof(ulong), NativeTypes.Number},
+            {typeof(uint), NativeTypes.Number},
+            {typeof(short), NativeTypes.Number},
+            {typeof(ushort), NativeTypes.Number},
+            {typeof(float), NativeTypes.Number},
+            {typeof(double), NativeTypes.Number},
+            {typeof(bool), NativeTypes.Boolean},
+            {typeof(TimeSpan), NativeTypes.String},
+            {typeof(DateTime), NativeTypes.String},
+            {typeof(DateTimeOffset), NativeTypes.String},
+            {typeof(decimal), NativeTypes.Number},
+            {typeof(object), NativeTypes.Any}
         }.ToImmutableDictionary();
+
+        public Func<Type, bool> InterfaceFilter { get; init; } =
+            t => t.Namespace != null && !t.Namespace.StartsWith("System");
 
         public Func<Type, bool> TypeFilter { get; init; } = t => !IsReflectionType(t);
 
@@ -44,8 +47,7 @@ namespace CookeRpc.AspNetCore.Model
             type.GetCustomAttribute<RpcTypeAttribute>()?.Name ??
             (type.IsInterface && type.Name.StartsWith("I") ? type.Name.Substring(1) : type.Name);
 
-        public BindingFlags MemberBindingFilter { get; init; } =
-            BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
+        public BindingFlags MemberBindingFilter { get; init; } = BindingFlags.Public | BindingFlags.Instance;
 
         public Func<MemberInfo, bool> MemberFilter { get; init; } = info =>
         {
@@ -73,10 +75,9 @@ namespace CookeRpc.AspNetCore.Model
         public Func<ParameterInfo, ParameterResolver?>? CustomParameterResolver { get; init; } = null;
 
         public Func<Type, RpcModel, RpcTypeDefinition?> CustomTypeDefiner { get; init; } = (_, _) => null;
-        
+
         public Func<Type, RpcType?> CustomTypeResolver { get; init; } = _ => null;
 
         public Func<MemberInfo, string> ProcedureNameFormatter { get; init; } = x => x.Name;
-
     }
 }

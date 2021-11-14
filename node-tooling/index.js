@@ -54,25 +54,101 @@ function generateRpcTs(meta) {
 
   stream.write(`import { createRpcInvoker } from "cooke-rpc";\n\n`);
 
-  // Register all types that participate in a union since then they need the $type discriminator
+  // Register all types that requires a discriminator due to participating in polymorphic scenarios
   const requiresDiscriminator = new Set();
   for (const type of meta.types) {
-    if (type.category === "union") {
+    if (type.kind === "union") {
       for (const memberType of type.types) {
         requiresDiscriminator.add(memberType.name);
       }
-    } else if (type.category === "complex") {
-      if (type.extenders && type.extenders.length > 0) {
+    } else if (type.kind === "object") {
+      if (type.interfaces && type.interfaces.length > 0) {
         requiresDiscriminator.add(type.name);
-        for (const ext of type.extenders) {
-          requiresDiscriminator.add(ext.name);
-        }
+      }
+
+      if (type.base) {
+        requiresDiscriminator.add(type.name);
+        requiresDiscriminator.add(type.base);
       }
     }
   }
 
+  const hasGeneratedUnion = new Set();
   for (const type of meta.types) {
-    if (type.category === "union") {
+    if (type.kind === "object") {
+      if (type.base) {
+        hasGeneratedUnion.add(type.base);
+      }
+    } else if (type.kind === "interface") {
+      hasGeneratedUnion.add(type.name);
+    }
+  }
+
+  function formatType(type) {
+    if (typeof type === "string") {
+      return hasGeneratedUnion.has(type) ? type + "Union" : type;
+    }
+
+    switch (type.kind) {
+      case "union":
+        return type.types.map(formatType).join(" | ");
+
+      case "generic":
+        switch (type.name) {
+          case "array":
+            return `Array<${type.typeArguments.map(formatType).join(",")}>`;
+
+          case "tuple":
+            return `[${type.typeArguments.map(formatType).join(",")}]`;
+
+          case "optional":
+            return `${type.typeArguments
+              .map(formatType)
+              .join(",")} | undefined`;
+
+          case "map": {
+            const keyType = formatType(type.typeArguments[0]);
+            const valueType = formatType(type.typeArguments[1]);
+            if (keyType === "string" || keyType === "number") {
+              return `{[key: ${keyType}]: ${valueType}}`;
+            } else {
+              return `{[key in ${keyType}]?: ${valueType}}`;
+            }
+          }
+
+          default:
+            return `${type.name}<${type.typeArguments
+              .map(formatType)
+              .join(",")}>`;
+        }
+
+      default:
+        return type.name;
+    }
+  }
+
+  function writeProperties(stream, properties) {
+    if (!properties) {
+      return;
+    }
+
+    stream.write(
+      properties
+        .map(
+          (p) =>
+            `  ${p.name}${
+              (p.type.kind === "generic" && p.type.name === "optional") ||
+              p.optional
+                ? "?"
+                : ""
+            }: ${formatType(p.type)};`
+        )
+        .join("\n")
+    );
+  }
+
+  for (const type of meta.types) {
+    if (type.kind === "union") {
       stream.write(`export type ${type.name} = `);
       if (type.types.length > 0) {
         stream.write(type.types.map(formatType).join(" | "));
@@ -80,8 +156,22 @@ function generateRpcTs(meta) {
         stream.write("never");
       }
       stream.write(";\n\n");
-    } else if (type.category === "complex") {
-      stream.write(`export type ${type.name} = `);
+    } else if (type.kind === "object") {
+      stream.write(`export interface ${type.name} `);
+
+      if ((type.interfaces && type.interfaces.length > 0) || type.base) {
+        stream.write("extends ");
+        stream.write(
+          [
+            type.base ? `Omit<${type.base}, "$type">` : null,
+            ...(type.interfaces ?? []),
+          ]
+            .filter((x) => !!x)
+            .join(", ")
+        );
+        stream.write(" ");
+      }
+
       stream.write("{\n");
       if (requiresDiscriminator.has(type.name)) {
         stream.write(`  $type: "${type.name}";\n`);
@@ -89,29 +179,50 @@ function generateRpcTs(meta) {
         stream.write(`  $type?: "${type.name}";\n`);
       }
 
-      stream.write(
-        type.properties
-          .map(
-            (p) =>
-              `  ${p.name}${
-                (p.type.category === "generic" && p.type.name === "optional") ||
-                p.optional
-                  ? "?"
-                  : ""
-              }: ${formatType(p.type)};`
-          )
-          .join("\n")
-      );
+      writeProperties(stream, type.properties);
 
       stream.write("\n}");
+      stream.write(";\n\n");
 
-      if (type.extenders) {
-        stream.write(" | ");
-        stream.write(type.extenders.map(formatType).join(" | "));
+      if (hasGeneratedUnion.has(type.name)) {
+        stream.write(`export type ${type.name}Union = `);
+        stream.write(
+          [
+            type.name,
+            ...meta.types
+              .filter((x) => x.base === type.name)
+              .map((x) => x.name),
+          ].join(" | ")
+        );
+        stream.write(";\n\n");
+      }
+    } else if (type.kind === "interface") {
+      stream.write(`export interface ${type.name} `);
+
+      if (type.interfaces && type.interfaces.length > 0) {
+        stream.write("extends ");
+        stream.write(type.interfaces.join(", "));
+        stream.write(" ");
       }
 
+      stream.write("{\n");
+      writeProperties(stream, type.properties);
+      stream.write("\n}");
       stream.write(";\n\n");
-    } else if (type.category === "enum") {
+
+      if (hasGeneratedUnion.has(type.name)) {
+        stream.write(`export type ${type.name}Union = `);
+        const implementers = [
+          ...meta.types
+            .filter((x) => x.interfaces?.includes(type.name))
+            .map((x) => x.name),
+        ];
+        stream.write(
+          implementers.length > 0 ? implementers.join(" | ") : "never"
+        );
+        stream.write(";\n\n");
+      }
+    } else if (type.kind === "enum") {
       stream.write(`export enum ${type.name} {\n`);
       stream.write(
         type.members
@@ -124,7 +235,7 @@ function generateRpcTs(meta) {
           .join(",\n")
       );
       stream.write("\n}\n\n");
-    } else if (type.category === "scalar") {
+    } else if (type.kind === "scalar") {
       stream.write(
         `export type ${type.name} = ${formatType(type.implementationType)};\n\n`
       );
@@ -159,44 +270,4 @@ function toCamelCase(str) {
   }
 
   return str;
-}
-
-function formatType(type) {
-  switch (type.category) {
-    case "union":
-      return type.types.map(formatType).join(" | ");
-
-    case "native":
-      return type.name;
-
-    case "generic":
-      switch (type.name) {
-        case "array":
-          return `Array<${type.typeArguments.map(formatType).join(",")}>`;
-
-        case "tuple":
-          return `[${type.typeArguments.map(formatType).join(",")}]`;
-
-        case "optional":
-          return `${type.typeArguments.map(formatType).join(",")} | undefined`;
-
-        case "map": {
-          const keyType = formatType(type.typeArguments[0]);
-          const valueType = formatType(type.typeArguments[1]);
-          if (keyType === "string" || keyType === "number") {
-            return `{[key: ${keyType}]: ${valueType}}`;
-          } else {
-            return `{[key in ${keyType}]?: ${valueType}}`;
-          }
-        }
-
-        default:
-          return `${type.name}<${type.typeArguments
-            .map(formatType)
-            .join(",")}>`;
-      }
-
-    default:
-      return type.name;
-  }
 }

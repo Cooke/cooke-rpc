@@ -30,7 +30,7 @@ namespace CookeRpc.Tests
         {
             var serviceModel = _model.Services.First();
             var proc = serviceModel.Procedures.Single(x => x.Name == "GetString");
-            Assert.Equal("string", Assert.IsType<NativeType>(proc.ReturnType).Name);
+            Assert.Equal("string", Assert.IsType<RefType>(proc.ReturnType).Name);
         }
 
         [Fact]
@@ -46,7 +46,7 @@ namespace CookeRpc.Tests
         {
             var serviceModel = _model.Services.First();
             var proc = serviceModel.Procedures.Single(x => x.Name == "GetStringTask");
-            Assert.Equal("string", Assert.IsType<NativeType>(proc.ReturnType).Name);
+            Assert.Equal("string", Assert.IsType<RefType>(proc.ReturnType).Name);
         }
 
         [Fact]
@@ -63,8 +63,8 @@ namespace CookeRpc.Tests
             var serviceModel = _model.Services.First();
             var returnType = serviceModel.Procedures.Single(x => x.Name == "GetPos").ReturnType;
             var genericType = Assert.IsType<GenericType>(returnType);
-            Assert.Equal(genericType.InnerType, NativeType.Tuple);
-            Assert.IsType<NativeType>(genericType.TypeArguments.First());
+            Assert.Equal(genericType.InnerType, NativeTypes.Tuple);
+            Assert.IsType<RefType>(genericType.TypeArguments.First());
         }
 
         private static void AssertNullable(RpcType type)

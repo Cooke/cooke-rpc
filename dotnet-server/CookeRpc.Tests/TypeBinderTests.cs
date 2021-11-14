@@ -29,7 +29,7 @@ namespace CookeRpc.Tests
         [Fact]
         public void Resolve_Map_With_Array_To_Dictionary_With_List()
         {
-            var targetType = typeof(IDictionary<string, List<int>>);
+            var targetType = typeof(IDictionary<string, List<double>>);
             var res = new RpcModelTypeBinder(_model).ResolveType("map<string,array<number>>", targetType);
             Assert.True(res.IsAssignableTo(targetType));
 

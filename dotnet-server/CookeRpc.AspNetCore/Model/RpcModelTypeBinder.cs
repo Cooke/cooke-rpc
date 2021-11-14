@@ -10,7 +10,7 @@ namespace CookeRpc.AspNetCore.Model
     public class RpcModelTypeBinder : ITypeBinder
     {
         private readonly RpcModel _rpcModel;
-        private Dictionary<string, RpcType> _typesByName;
+        private readonly Dictionary<string, RpcType> _typesByName;
 
         public RpcModelTypeBinder(RpcModel rpcModel)
         {
@@ -58,18 +58,11 @@ namespace CookeRpc.AspNetCore.Model
                               throw new InvalidOperationException("Failed to resolve type");
             var clrDataType = rpcDataType switch
             {
-                NativeType nativeType => nativeType switch
-                {
-                    var x when x == NativeType.Map => typeof(Dictionary<,>),
-                    var x when x == NativeType.Array => typeof(List<>),
-                    _ when !targetType.IsAbstract => targetType,
-                    _ => throw new InvalidOperationException("Failed to resolve type")
-                },
-                CustomType customType => customType.TypeDefinition.ClrType,
+                RefType customType => customType.TypeDefinition.ClrType,
                 GenericType genericType => genericType switch
                 {
-                    var x when x.InnerType == NativeType.Array => typeof(List<>),
-                    var x when x.InnerType == NativeType.Map => typeof(Dictionary<,>),
+                    var x when x.InnerType == NativeTypes.Array => typeof(List<>),
+                    var x when x.InnerType == NativeTypes.Map => typeof(Dictionary<,>),
                     _ => throw new InvalidOperationException("Failed to resolve type")
                 },
                 _ => throw new InvalidOperationException("Failed to resolve type")
@@ -122,8 +115,7 @@ namespace CookeRpc.AspNetCore.Model
         {
             switch (rpcType)
             {
-                case CustomType:
-                case NativeType:
+                case RefType:
                     return rpcType.Name ?? throw new InvalidOperationException();
 
                 case GenericType standardType:
