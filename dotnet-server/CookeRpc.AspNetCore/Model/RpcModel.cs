@@ -99,6 +99,10 @@ namespace CookeRpc.AspNetCore.Model
                 return genericType;
             }
 
+            if (clrType.IsGenericType && clrType.GetGenericTypeDefinition() != clrType) {
+                return MapType(clrType.GetGenericTypeDefinition());
+            }
+
             if (clrType.IsClass || clrType.IsInterface) {
                 return DefineObjectOrInterface(clrType);
             }
@@ -176,6 +180,8 @@ namespace CookeRpc.AspNetCore.Model
             var interfaces = new List<RpcType>();
             RpcType? baseType = null;
             Func<RpcType?> baseTypeThunk = () => baseType;
+            
+            
 
             var typeName = _options.TypeNameFormatter(type);
             RpcTypeDefinition typeDefinition = type.IsInterface || type.IsAbstract

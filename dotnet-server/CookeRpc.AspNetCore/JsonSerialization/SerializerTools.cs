@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -89,7 +90,7 @@ namespace CookeRpc.AspNetCore.JsonSerialization
 
                 // The JsonSerializer special treats serialization of object types and then uses the runtime type (obj.GetType())
                 // which will then skip serializing the $type property. Because of this we special treat the object type
-                if (propValue != null && propType == typeof(object))
+                if (propValue != null && propType == typeof(object) && propValue.GetType().IsAssignableTo(typeof(IEnumerable)) == false)
                 {
                     var converter = (JsonConverter<object>) options.GetConverter(propType);
                     converter.Write(writer, propValue, options);

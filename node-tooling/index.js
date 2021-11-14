@@ -46,6 +46,8 @@ if (!fs.existsSync(outputDir)) {
   .end();
 
 function generateRpcTs(meta) {
+  const defaultUnion = true;
+
   const stream = fs.createWriteStream(outputFilePath, {
     flags: "w",
   });
@@ -86,7 +88,7 @@ function generateRpcTs(meta) {
 
   function formatType(type) {
     if (typeof type === "string") {
-      return hasGeneratedUnion.has(type) ? type + "Union" : type;
+      return hasGeneratedUnion.has(type) && !defaultUnion ? type + "Union" : type;
     }
 
     switch (type.kind) {
@@ -157,7 +159,7 @@ function generateRpcTs(meta) {
       }
       stream.write(";\n\n");
     } else if (type.kind === "object") {
-      stream.write(`export interface ${type.name} `);
+      stream.write(`export interface ${type.name}${ hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : "" } `);
 
       if ((type.interfaces && type.interfaces.length > 0) || type.base) {
         stream.write("extends ");
@@ -167,6 +169,7 @@ function generateRpcTs(meta) {
             ...(type.interfaces ?? []),
           ]
             .filter((x) => !!x)
+            .map(i => i + (hasGeneratedUnion.has(i) && defaultUnion ? "Interface" : ""))
             .join(", ")
         );
         stream.write(" ");
@@ -185,23 +188,24 @@ function generateRpcTs(meta) {
       stream.write(";\n\n");
 
       if (hasGeneratedUnion.has(type.name)) {
-        stream.write(`export type ${type.name}Union = `);
+        stream.write(`export type ${type.name}${ !defaultUnion ? "Union" : ""} = `);
         stream.write(
           [
-            type.name,
+            type.name + (hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : "" ),
             ...meta.types
               .filter((x) => x.base === type.name)
-              .map((x) => x.name),
+              .map((x) => x.name + (hasGeneratedUnion.has(x.name) && defaultUnion ? "Interface" : "" )),
           ].join(" | ")
         );
         stream.write(";\n\n");
       }
     } else if (type.kind === "interface") {
-      stream.write(`export interface ${type.name} `);
+      stream.write(`export interface ${type.name}${ hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : "" } `);
 
       if (type.interfaces && type.interfaces.length > 0) {
         stream.write("extends ");
-        stream.write(type.interfaces.join(", "));
+        stream.write(type.interfaces.map(i => i + (hasGeneratedUnion.has(i) && defaultUnion ? "Interface" : "" ))
+          .join(", "));
         stream.write(" ");
       }
 
@@ -211,11 +215,11 @@ function generateRpcTs(meta) {
       stream.write(";\n\n");
 
       if (hasGeneratedUnion.has(type.name)) {
-        stream.write(`export type ${type.name}Union = `);
+        stream.write(`export type ${type.name}${ !defaultUnion ? "Union" : ""} = `);
         const implementers = [
           ...meta.types
             .filter((x) => x.interfaces?.includes(type.name))
-            .map((x) => x.name),
+            .map((x) => x.name + (hasGeneratedUnion.has(x.name) && defaultUnion ? "Interface" : "" )),
         ];
         stream.write(
           implementers.length > 0 ? implementers.join(" | ") : "never"
