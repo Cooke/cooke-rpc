@@ -38,10 +38,12 @@ namespace CookeRpc.Tests
             var json = JsonSerializer.Serialize<object>(
                 new FruitBasket10Size
                 {
-                    Fruits = new IFruit[] {new Apple(), new Banana()},
+                    Fruits = new IFruit[] { new Apple(), new Banana() },
                     Decoration = new RosetteDecoration
                     {
-                        Length = 15, Color = "Pink", DecorationFruit = new Apple {Radius = 33}
+                        Length = 15,
+                        Color = "Pink",
+                        DecorationFruit = new Apple { Radius = 33 }
                     },
                 }, _options);
 
@@ -87,16 +89,46 @@ namespace CookeRpc.Tests
             var apple = Assert.IsType<Apple>(obj);
             Assert.Equal(3, Assert.IsType<Apple>(apple).Radius);
         }
-        
+
         [Fact]
         public void SerializeWithTypeInfoOfNestedObjects()
         {
-            var json = JsonSerializer.Serialize(new ObjectWrapper {Value = new Banana()}, _options);
-            Assert.Equal(
-                "{\"Value\":{\"$type\":\"Banana\",\"Angle\":30}}",
-                json);
+            var json = JsonSerializer.Serialize(new ObjectWrapper { Value = new Banana() }, _options);
+            Assert.Equal("{\"Value\":{\"$type\":\"Banana\",\"Angle\":30}}", json);
         }
-        
+
+        [Fact]
+        public void SerializeWithDeserializedCallbacks()
+        {
+            var json = JsonSerializer.Serialize(
+                new OnDeserializedTypeParent(new OnDeserializedTypeChild { Text = "child" }) { Text = "parent" },
+                _options);
+
+            var parent = JsonSerializer.Deserialize<OnDeserializedTypeParent>(json, _options)!;
+            Assert.Equal("PARENT", parent.Text);
+            Assert.Equal("CHILD", parent.Child.Text);
+        }
+
+        public record OnDeserializedTypeParent(OnDeserializedTypeChild Child) : IJsonOnDeserialized
+        {
+            public string Text { get; set; } = "";
+
+            public void OnDeserialized()
+            {
+                Text = Text.ToUpper();
+            }
+        }
+
+        public record OnDeserializedTypeChild : IJsonOnDeserialized
+        {
+            public string Text { get; set; } = "";
+
+            public void OnDeserialized()
+            {
+                Text = Text.ToUpper();
+            }
+        }
+
         public class ObjectWrapper
         {
             public object? Value { get; set; }
@@ -138,7 +170,7 @@ namespace CookeRpc.Tests
         {
             public string Color { get; set; } = "Gray";
 
-            public IFruit DecorationFruit { get; set; } = new Banana {Angle = 333};
+            public IFruit DecorationFruit { get; set; } = new Banana { Angle = 333 };
         }
 
         public class RosetteDecoration : Decoration

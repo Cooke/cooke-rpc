@@ -27,7 +27,13 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             }
 
             reader.Read();
-            return SerializerTools.ReadObjectProperties<T>(ref reader, options, clrType);
+            var obj = SerializerTools.ReadObjectProperties<T>(ref reader, options, clrType);
+
+            if (obj is IJsonOnDeserialized deserialized) {
+                deserialized.OnDeserialized();
+            }
+            
+            return obj;
         }
 
         private Type ResolveType(Utf8JsonReader reader, Type typeToConvert)
