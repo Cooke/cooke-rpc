@@ -13,8 +13,8 @@ namespace CookeRpc.AspNetCore.Model
     public class RpcModel
     {
         private readonly RpcModelOptions _options;
-        private readonly List<RpcTypeDefinition> _typesDefinitions = new();
-        private readonly Dictionary<Type, RpcType> _typeMap = new();
+        private readonly List<RpcTypeDefinition> _typesDefinitions;
+        private readonly Dictionary<Type, RpcType> _typeMap;
         private readonly Dictionary<Type, RpcServiceModel> _services = new();
 
         public RpcModel() : this(new RpcModelOptions())
@@ -24,6 +24,8 @@ namespace CookeRpc.AspNetCore.Model
         public RpcModel(RpcModelOptions options)
         {
             _options = options;
+            _typesDefinitions = options.InitialTypeDefinitions.ToList();
+            _typeMap = options.InitialTypeMap.ToDictionary(x => x.Key, x => x.Value);
         }
 
         public IReadOnlyCollection<RpcTypeDefinition> TypesDefinitions => _typesDefinitions;
@@ -34,6 +36,8 @@ namespace CookeRpc.AspNetCore.Model
 
         public RpcType MapType(Type clrType)
         {
+            _options.OnMappingType?.Invoke(clrType, this);
+            
             var knownType = _typeMap.GetValueOrDefault(clrType);
             if (knownType != null) {
                 return knownType;
@@ -41,23 +45,6 @@ namespace CookeRpc.AspNetCore.Model
 
             if (!_options.TypeFilter(clrType)) {
                 throw new InvalidOperationException("Type cannot be mapped due to the type filter configuration");
-            }
-
-            var customRpcType = _options.CustomTypeResolver(clrType);
-            if (customRpcType != null) {
-                _typeMap.Add(clrType, customRpcType);
-                return customRpcType;
-            }
-
-            var customDefinition = _options.CustomTypeDefiner(clrType, this);
-            if (customDefinition != null) {
-                return AddTypeDefinition(customDefinition);
-            }
-
-            var defaultRpcType = _options.CustomDefaultTypeMap.GetValueOrDefault(clrType);
-            if (defaultRpcType != null) {
-                _typeMap.Add(clrType, defaultRpcType);
-                return defaultRpcType;
             }
 
             if (clrType.GetCustomAttribute<RpcTypeAttribute>()?.Kind == RpcTypeKind.Union) {
@@ -104,6 +91,14 @@ namespace CookeRpc.AspNetCore.Model
                 return genericType;
             }
 
+            if (clrType.IsAssignableTo(typeof(ITuple))) {
+                var typeArguments = new List<RpcType>();
+                var genericType = new GenericType(NativeTypes.Tuple, typeArguments);
+                _typeMap.Add(clrType, genericType);
+                typeArguments.AddRange(clrType.GenericTypeArguments.Select(MapType));
+                return genericType;
+            }
+
             if (clrType.IsGenericType && clrType.GetGenericTypeDefinition() != clrType) {
                 return MapType(clrType.GetGenericTypeDefinition());
             }
@@ -116,15 +111,32 @@ namespace CookeRpc.AspNetCore.Model
                 return DefineEnum(clrType);
             }
 
-            if (clrType.IsAssignableTo(typeof(ITuple))) {
-                var typeArguments = new List<RpcType>();
-                var genericType = new GenericType(NativeTypes.Tuple, typeArguments);
-                _typeMap.Add(clrType, genericType);
-                typeArguments.AddRange(clrType.GenericTypeArguments.Select(MapType));
-                return genericType;
-            }
 
             throw new ArgumentException($"Invalid type {clrType}");
+        }
+
+        public RpcType MapType(Type clrType, RpcType rpcType)
+        {
+            var knownType = _typeMap.GetValueOrDefault(clrType);
+            if (knownType != null && rpcType == knownType) {
+                return knownType;
+            }
+
+            if (knownType != null) {
+                throw new InvalidOperationException($"Type {clrType} is already mapped to {knownType}");
+            }
+
+            if (rpcType is RefType r && !_typesDefinitions.Contains(r.TypeDefinition)) {
+                _typesDefinitions.Add(r.TypeDefinition);
+            }
+
+            _typeMap.Add(clrType, rpcType);
+            return rpcType;
+        }
+
+        public RpcType MapType(Type clrType, RpcTypeDefinition rpcTypeDefinition)
+        {
+            return MapType(clrType, new RefType(rpcTypeDefinition));
         }
 
         public void AddService(Type rpcControllerType)
@@ -171,7 +183,7 @@ namespace CookeRpc.AspNetCore.Model
             _services.Add(rpcControllerType, serviceModel);
         }
 
-        public RpcType AddTypeDefinition(RpcTypeDefinition typeDefinition)
+        private RpcType AddTypeDefinition(RpcTypeDefinition typeDefinition)
         {
             var customType = new RefType(typeDefinition);
             _typesDefinitions.Add(typeDefinition);
@@ -183,19 +195,24 @@ namespace CookeRpc.AspNetCore.Model
         {
             var props = new List<RpcPropertyDefinition>();
             var interfaces = new List<RpcType>();
-
             var typeName = _options.TypeNameFormatter(type);
-            RpcTypeDefinition typeDefinition = type.IsInterface || type.IsAbstract
-                ? new RpcInterfaceDefinition(typeName, type, props, interfaces)
-                : new RpcObjectDefinition(typeName, type, props, interfaces);
-            var rpcType = AddTypeDefinition(typeDefinition);
+            RpcType rpcType;
+
+            if (type.IsInterface || type.IsAbstract) {
+                rpcType = AddTypeDefinition(new RpcInterfaceDefinition(typeName, type, props, interfaces));
+            }
+            else if (ReflectionHelper.FindAllOfType(type).Except(new[] { type }).Any(_options.TypeFilter)) {
+                rpcType = AddTypeDefinition(new RpcInterfaceDefinition(typeName + "Base", type, props, interfaces));
+                _typesDefinitions.Add(new RpcObjectDefinition(typeName, type, ArraySegment<RpcPropertyDefinition>.Empty,
+                    new[] { rpcType }));
+            }
+            else {
+                rpcType = AddTypeDefinition(new RpcInterfaceDefinition(typeName, type, props, interfaces));
+            }
 
             if (type.BaseType != typeof(object) && type.BaseType != null) {
                 var rpcBaseType = MapType(type.BaseType);
                 if (rpcBaseType is RefType { TypeDefinition: RpcInterfaceDefinition }) {
-                    interfaces.Add(rpcBaseType);
-                } else if (rpcBaseType is RefType { TypeDefinition: RpcObjectDefinition }) {
-                    Define
                     interfaces.Add(rpcBaseType);
                 }
             }

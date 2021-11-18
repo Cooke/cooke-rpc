@@ -14,22 +14,29 @@ namespace CookeRpc.AspNetCore.Model
     {
         public static readonly ImmutableDictionary<Type, RpcType> DefaultTypeMap = new Dictionary<Type, RpcType>
         {
-            {typeof(void), NativeTypes.Void},
-            {typeof(string), NativeTypes.String},
-            {typeof(int), NativeTypes.Number},
-            {typeof(long), NativeTypes.Number},
-            {typeof(ulong), NativeTypes.Number},
-            {typeof(uint), NativeTypes.Number},
-            {typeof(short), NativeTypes.Number},
-            {typeof(ushort), NativeTypes.Number},
-            {typeof(float), NativeTypes.Number},
-            {typeof(double), NativeTypes.Number},
-            {typeof(bool), NativeTypes.Boolean},
-            {typeof(TimeSpan), NativeTypes.String},
-            {typeof(DateTime), NativeTypes.String},
-            {typeof(DateTimeOffset), NativeTypes.String},
-            {typeof(decimal), NativeTypes.Number},
+            { typeof(string), NativeTypes.String },
+            { typeof(int), NativeTypes.Number },
+            { typeof(long), NativeTypes.Number },
+            { typeof(ulong), NativeTypes.Number },
+            { typeof(uint), NativeTypes.Number },
+            { typeof(short), NativeTypes.Number },
+            { typeof(ushort), NativeTypes.Number },
+            { typeof(float), NativeTypes.Number },
+            { typeof(double), NativeTypes.Number },
+            { typeof(bool), NativeTypes.Boolean },
+            { typeof(TimeSpan), NativeTypes.String },
+            { typeof(DateTime), NativeTypes.String },
+            { typeof(DateTimeOffset), NativeTypes.String },
+            { typeof(decimal), NativeTypes.Number },
+            { typeof(void), NativeTypes.Void },
         }.ToImmutableDictionary();
+
+        public static readonly ImmutableList<RpcTypeDefinition> DefaultTypeDefinitions = new[]
+        {
+            NativeTypes.Array.TypeDefinition, NativeTypes.Boolean.TypeDefinition, NativeTypes.Map.TypeDefinition,
+            NativeTypes.Null.TypeDefinition, NativeTypes.Number.TypeDefinition, NativeTypes.Optional.TypeDefinition,
+            NativeTypes.String.TypeDefinition, NativeTypes.Tuple.TypeDefinition, NativeTypes.Void.TypeDefinition,
+        }.ToImmutableList();
 
         public Func<Type, bool> InterfaceFilter { get; init; } =
             t => t.Namespace != null && !t.Namespace.StartsWith("System");
@@ -67,16 +74,16 @@ namespace CookeRpc.AspNetCore.Model
 
         public Func<Type, string> ServiceNameFormatter { get; init; } = type => type.Name;
 
-        public IReadOnlyDictionary<Type, RpcType> CustomDefaultTypeMap { get; init; } = DefaultTypeMap;
+        public IReadOnlyDictionary<Type, RpcType> InitialTypeMap { get; init; } = DefaultTypeMap;
+
+        public IReadOnlyCollection<RpcTypeDefinition> InitialTypeDefinitions { get; init; } = DefaultTypeDefinitions;
 
         public Type ContextType { get; init; } = typeof(RpcContext);
 
         public Func<ParameterInfo, ParameterResolver?>? CustomParameterResolver { get; init; } = null;
 
-        public Func<Type, RpcModel, RpcTypeDefinition?> CustomTypeDefiner { get; init; } = (_, _) => null;
-
-        public Func<Type, RpcType?> CustomTypeResolver { get; init; } = _ => null;
-
         public Func<MemberInfo, string> ProcedureNameFormatter { get; init; } = x => x.Name;
+
+        public Action<Type, RpcModel>? OnMappingType { get; init; } = null;
     }
 }

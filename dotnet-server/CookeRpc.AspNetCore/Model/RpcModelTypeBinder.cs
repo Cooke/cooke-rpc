@@ -15,20 +15,18 @@ namespace CookeRpc.AspNetCore.Model
         public RpcModelTypeBinder(RpcModel rpcModel)
         {
             _rpcModel = rpcModel;
-            _typesByName = rpcModel.MappedTypes.Values.Where(x => x.Name is not null).GroupBy(x => x.Name)
-                .ToDictionary(x => x.Key!, x => x.First());
+            _typesByName = rpcModel.TypesDefinitions.GroupBy(x => x.Name)
+                .ToDictionary(x => x.Key, x => (RpcType)new RefType(x.First()));
         }
 
         public string GetName(Type type)
         {
             var rpcType = _rpcModel.MappedTypes.GetValueOrDefault(type);
-            if (rpcType == null)
-            {
+            if (rpcType == null) {
                 throw new InvalidOperationException($"Cannot resolve RPC type for CLR type: {type}");
             }
 
-            if (rpcType.Name == null)
-            {
+            if (rpcType.Name == null) {
                 throw new InvalidOperationException($"Cannot resolve type name for RPC type: {rpcType}");
             }
 
@@ -69,8 +67,7 @@ namespace CookeRpc.AspNetCore.Model
             };
 
             // Generic
-            if (clrDataType.IsGenericTypeDefinition || targetType.IsGenericTypeDefinition)
-            {
+            if (clrDataType.IsGenericTypeDefinition || targetType.IsGenericTypeDefinition) {
                 var genericTypeArguments = refDataType.Arguments.Zip(targetType.GenericTypeArguments)
                     .Select(pair => Resolve(pair.First, pair.Second)).ToArray();
 
@@ -85,15 +82,13 @@ namespace CookeRpc.AspNetCore.Model
         private static JsonRpcTypeRef Parse(ReadOnlySpan<char> span, ref int tail, ref int head)
         {
             // Parse type name
-            while (head < span.Length && span[head] != '<' && span[head] != '>' && span[head] != ',')
-            {
+            while (head < span.Length && span[head] != '<' && span[head] != '>' && span[head] != ',') {
                 head++;
             }
 
             var name = new string(span.Slice(tail, head - tail));
 
-            if (head >= span.Length || span[head] != '<')
-            {
+            if (head >= span.Length || span[head] != '<') {
                 return new JsonRpcTypeRef(name, Array.Empty<JsonRpcTypeRef>());
             }
 
@@ -101,8 +96,7 @@ namespace CookeRpc.AspNetCore.Model
             tail = head;
 
             var args = new List<JsonRpcTypeRef>();
-            while (head < span.Length && span[head] != '>')
-            {
+            while (head < span.Length && span[head] != '>') {
                 args.Add(Parse(span, ref tail, ref head));
                 head++;
                 tail = head;
@@ -113,14 +107,12 @@ namespace CookeRpc.AspNetCore.Model
 
         private string SerializeType(RpcType rpcType)
         {
-            switch (rpcType)
-            {
+            switch (rpcType) {
                 case RefType:
                     return rpcType.Name ?? throw new InvalidOperationException();
 
                 case GenericType standardType:
-                    if (!standardType.TypeArguments.Any())
-                    {
+                    if (!standardType.TypeArguments.Any()) {
                         return standardType.Name ?? throw new InvalidOperationException();
                     }
 

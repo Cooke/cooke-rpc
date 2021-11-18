@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
+using CookeRpc.AspNetCore.Model.Types;
 using CookeRpc.AspNetCore.Utils;
 
-namespace CookeRpc.AspNetCore.Model.Types
+namespace CookeRpc.AspNetCore.Model
 {
     public class NativeTypes
     {

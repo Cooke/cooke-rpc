@@ -5,6 +5,8 @@ using System.Reflection;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.JsonSerialization;
 using CookeRpc.AspNetCore.Model;
+using CookeRpc.AspNetCore.Model.TypeDefinitions;
+using CookeRpc.AspNetCore.Model.Types;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +22,7 @@ namespace CookeRpc.AspNetCore
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, string path = "/rpc")
         {
-            var model = new RpcModel(new RpcModelOptions {ContextType = typeof(HttpRpcContext)});
+            var model = new RpcModel(new RpcModelOptions { ContextType = typeof(HttpRpcContext) });
             model.AddRpcServicesByAttribute();
             return UseRpc(app, model, path);
         }
@@ -30,14 +32,28 @@ namespace CookeRpc.AspNetCore
             return model.AddRpcServicesByAttribute<RpcServiceAttribute>();
         }
 
+        public static RpcType MapType<T>(this RpcModel model)
+        {
+            return model.MapType(typeof(T));
+        }
+
+        public static RpcType MapType<T>(this RpcModel model, RpcType rpcType)
+        {
+            return model.MapType(typeof(T), rpcType);
+        }
+
+        public static RpcType MapType<T>(this RpcModel model, RpcTypeDefinition rpcTypeDefinition)
+        {
+            return model.MapType(typeof(T), rpcTypeDefinition);
+        }
+
         public static RpcModel AddRpcServicesByAttribute<TAttribute>(this RpcModel model) where TAttribute : Attribute
         {
             var controllerTypes = Assembly.GetCallingAssembly().GetTypes()
                 .Concat(Assembly.GetEntryAssembly()?.GetTypes() ?? ArraySegment<Type>.Empty)
                 .Where(x => x.GetCustomAttribute<TAttribute>() != null);
 
-            foreach (var controllerType in controllerTypes)
-            {
+            foreach (var controllerType in controllerTypes) {
                 model.AddService(controllerType);
             }
 
@@ -56,13 +72,16 @@ namespace CookeRpc.AspNetCore
             string path = "/rpc")
         {
             UseRpcIntrospection(app, model, path + "/introspection");
-            return app.UseMiddleware<RpcHttpMiddleware>(new RpcHttpMiddlewareOptions(model, serializer) {Path = path});
+            return app.UseMiddleware<RpcHttpMiddleware>(
+                new RpcHttpMiddlewareOptions(model, serializer) { Path = path });
         }
 
-        public static void UseRpcIntrospection(this IApplicationBuilder app, RpcModel model, string path = "/rpc/introspection")
+        public static void UseRpcIntrospection(this IApplicationBuilder app,
+            RpcModel model,
+            string path = "/rpc/introspection")
         {
             app.UseMiddleware<RpcIntrospectionHttpMiddleware>(
-                new RpcIntrospectionHttpMiddlewareOptions(model) {Path = path});
+                new RpcIntrospectionHttpMiddlewareOptions(model) { Path = path });
         }
     }
 }
