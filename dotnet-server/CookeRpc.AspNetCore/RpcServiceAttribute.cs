@@ -11,5 +11,13 @@ namespace CookeRpc.AspNetCore
     public class RpcTypeAttribute : Attribute
     {
         public string? Name { get; init; }
+        
+        public RpcTypeKind Kind { get; init; }
+    }
+
+    public enum RpcTypeKind
+    {
+        Auto,
+        Union
     }
 }

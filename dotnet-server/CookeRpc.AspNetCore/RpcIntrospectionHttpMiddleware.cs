@@ -86,15 +86,13 @@ namespace CookeRpc.AspNetCore
                     {
                         kind = "object",
                         x.Name,
-                        @base = obj.Base != null ? GetIntrospectionType(obj.Base) : null,
                         properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
                         interfaces = obj.Interfaces.Count == 0 ? null : obj.Interfaces.Select(GetIntrospectionType)
                     },
-                    RpcScalarDefinition scalar => new
+                    RpcNativeTypeDefinition => new
                     {
-                        kind = "scalar",
-                        x.Name,
-                        ImplementationType = GetIntrospectionType(scalar.ImplementationType)
+                        kind = "native",
+                        x.Name
                     },
                     _ => throw new ArgumentOutOfRangeException(nameof(x))
                 })),

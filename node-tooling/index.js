@@ -88,7 +88,9 @@ function generateRpcTs(meta) {
 
   function formatType(type) {
     if (typeof type === "string") {
-      return hasGeneratedUnion.has(type) && !defaultUnion ? type + "Union" : type;
+      return hasGeneratedUnion.has(type) && !defaultUnion
+        ? type + "Union"
+        : type;
     }
 
     switch (type.kind) {
@@ -159,17 +161,31 @@ function generateRpcTs(meta) {
       }
       stream.write(";\n\n");
     } else if (type.kind === "object") {
-      stream.write(`export interface ${type.name}${ hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : "" } `);
+      stream.write(
+        `export interface ${type.name}${
+          hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : ""
+        } `
+      );
 
       if ((type.interfaces && type.interfaces.length > 0) || type.base) {
         stream.write("extends ");
         stream.write(
           [
-            type.base ? `Omit<${type.base}, "$type">` : null,
+            type.base
+              ? `Omit<${type.base}${
+                  hasGeneratedUnion.has(type.base) && defaultUnion
+                    ? "Interface"
+                    : ""
+                }, "$type">`
+              : null,
             ...(type.interfaces ?? []),
           ]
             .filter((x) => !!x)
-            .map(i => i + (hasGeneratedUnion.has(i) && defaultUnion ? "Interface" : ""))
+            .map(
+              (i) =>
+                i +
+                (hasGeneratedUnion.has(i) && defaultUnion ? "Interface" : "")
+            )
             .join(", ")
         );
         stream.write(" ");
@@ -188,24 +204,46 @@ function generateRpcTs(meta) {
       stream.write(";\n\n");
 
       if (hasGeneratedUnion.has(type.name)) {
-        stream.write(`export type ${type.name}${ !defaultUnion ? "Union" : ""} = `);
+        stream.write(
+          `export type ${type.name}${!defaultUnion ? "Union" : ""} = `
+        );
         stream.write(
           [
-            type.name + (hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : "" ),
+            type.name +
+              (hasGeneratedUnion.has(type.name) && defaultUnion
+                ? "Interface"
+                : ""),
             ...meta.types
               .filter((x) => x.base === type.name)
-              .map((x) => x.name + (hasGeneratedUnion.has(x.name) && defaultUnion ? "Interface" : "" )),
+              .map(
+                (x) =>
+                  x.name +
+                  (hasGeneratedUnion.has(x.name) && !defaultUnion
+                    ? "Union"
+                    : "")
+              ),
           ].join(" | ")
         );
         stream.write(";\n\n");
       }
     } else if (type.kind === "interface") {
-      stream.write(`export interface ${type.name}${ hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : "" } `);
+      stream.write(
+        `export interface ${type.name}${
+          hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : ""
+        } `
+      );
 
       if (type.interfaces && type.interfaces.length > 0) {
         stream.write("extends ");
-        stream.write(type.interfaces.map(i => i + (hasGeneratedUnion.has(i) && defaultUnion ? "Interface" : "" ))
-          .join(", "));
+        stream.write(
+          type.interfaces
+            .map(
+              (i) =>
+                i +
+                (hasGeneratedUnion.has(i) && defaultUnion ? "Interface" : "")
+            )
+            .join(", ")
+        );
         stream.write(" ");
       }
 
@@ -215,11 +253,17 @@ function generateRpcTs(meta) {
       stream.write(";\n\n");
 
       if (hasGeneratedUnion.has(type.name)) {
-        stream.write(`export type ${type.name}${ !defaultUnion ? "Union" : ""} = `);
+        stream.write(
+          `export type ${type.name}${!defaultUnion ? "Union" : ""} = `
+        );
         const implementers = [
           ...meta.types
             .filter((x) => x.interfaces?.includes(type.name))
-            .map((x) => x.name + (hasGeneratedUnion.has(x.name) && defaultUnion ? "Interface" : "" )),
+            .map(
+              (x) =>
+                x.name +
+                (hasGeneratedUnion.has(x.name) && !defaultUnion ? "Union" : "")
+            ),
         ];
         stream.write(
           implementers.length > 0 ? implementers.join(" | ") : "never"

@@ -17,6 +17,5 @@ namespace CookeRpc.AspNetCore.Model.Types
         public static RefType Array { get; } = new(new RpcNativeTypeDefinition("array", typeof(List<>)));
         public static RefType Tuple { get; } = new(new RpcNativeTypeDefinition("tuple", typeof(ITuple)));
         public static RefType Optional { get; } = new(new RpcNativeTypeDefinition("optional", typeof(Optional<>)));
-        public static RefType Any { get; } = new(new RpcNativeTypeDefinition("any", typeof(object)));
     }
 }

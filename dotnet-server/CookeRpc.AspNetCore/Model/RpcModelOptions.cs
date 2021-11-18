@@ -29,7 +29,6 @@ namespace CookeRpc.AspNetCore.Model
             {typeof(DateTime), NativeTypes.String},
             {typeof(DateTimeOffset), NativeTypes.String},
             {typeof(decimal), NativeTypes.Number},
-            {typeof(object), NativeTypes.Any}
         }.ToImmutableDictionary();
 
         public Func<Type, bool> InterfaceFilter { get; init; } =
