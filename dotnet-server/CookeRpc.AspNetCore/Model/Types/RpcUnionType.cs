@@ -2,11 +2,11 @@
 
 namespace CookeRpc.AspNetCore.Model.Types
 {
-    public class UnionType : RpcType
+    public class RpcUnionType : RpcType
     {
         public IReadOnlyCollection<RpcType> Types { get; }
 
-        public UnionType(IReadOnlyCollection<RpcType> types)
+        public RpcUnionType(IReadOnlyCollection<RpcType> types)
         {
             Types = types;
         }

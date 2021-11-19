@@ -2,11 +2,11 @@
 
 namespace CookeRpc.AspNetCore.Model.Types
 {
-    public class RefType : RpcType
+    public class RpcRefType : RpcType
     {
         public RpcTypeDefinition TypeDefinition { get; }
 
-        public RefType(RpcTypeDefinition typeDefinition)
+        public RpcRefType(RpcTypeDefinition typeDefinition)
         {
             TypeDefinition = typeDefinition;
         }

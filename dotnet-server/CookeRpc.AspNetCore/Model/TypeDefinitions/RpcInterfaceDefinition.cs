@@ -9,14 +9,14 @@ namespace CookeRpc.AspNetCore.Model.TypeDefinitions
         public RpcInterfaceDefinition(string name,
             Type clrType,
             IReadOnlyCollection<RpcPropertyDefinition> properties,
-            IReadOnlyCollection<RpcType> interfaces) : base(name, clrType)
+            IReadOnlyCollection<RpcType> extends) : base(name, clrType)
         {
             Properties = properties;
-            Interfaces = interfaces;
+            Extends = extends;
         }
 
         public IReadOnlyCollection<RpcPropertyDefinition> Properties { get; }
         
-        public IReadOnlyCollection<RpcType> Interfaces { get; }
+        public IReadOnlyCollection<RpcType> Extends { get; }
     }
 }

@@ -57,7 +57,7 @@ namespace CookeRpc.AspNetCore
         {
             await context.Response.WriteAsJsonAsync(new
             {
-                types = _model.TypesDefinitions.Select(x => (object) (x switch
+                types = _model.TypesDefinitions.Select(x => (object?)(x switch
                 {
                     RpcEnumDefinition e => new
                     {
@@ -79,23 +79,21 @@ namespace CookeRpc.AspNetCore
                     {
                         kind = "interface",
                         x.Name,
-                        properties = inter.Properties.Count == 0 ? null : inter.Properties.Select(GetIntrospectionProperty),
-                        interfaces = inter.Interfaces.Count == 0 ? null : inter.Interfaces.Select(GetIntrospectionType)
+                        properties = inter.Properties.Count == 0
+                            ? null
+                            : inter.Properties.Select(GetIntrospectionProperty),
+                        extends = inter.Extends.Count == 0 ? null : inter.Extends.Select(GetIntrospectionType)
                     },
                     RpcObjectDefinition obj => new
                     {
                         kind = "object",
                         x.Name,
                         properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
-                        interfaces = obj.Interfaces.Count == 0 ? null : obj.Interfaces.Select(GetIntrospectionType)
+                        implements = obj.Implements.Count == 0 ? null : obj.Implements.Select(GetIntrospectionType)
                     },
-                    RpcNativeTypeDefinition => new
-                    {
-                        kind = "native",
-                        x.Name
-                    },
+                    RpcPrimitiveTypeDefinition => null,
                     _ => throw new ArgumentOutOfRangeException(nameof(x))
-                })),
+                })).Where(x => x is not null),
                 services = _model.Services.Select(x => new
                 {
                     x.Name,
@@ -115,18 +113,18 @@ namespace CookeRpc.AspNetCore
             static object GetIntrospectionType(RpcType t) =>
                 t switch
                 {
-                    UnionType unionType => new
+                    RpcUnionType unionType => new
                     {
                         kind = "union",
                         types = unionType.Types.Select(GetIntrospectionType)
                     },
-                    GenericType genericType => new
+                    RpcGenericType genericType => new
                     {
                         kind = "generic",
                         name = genericType.Name,
                         typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
                     },
-                    RefType {Name: { }} refType => refType.Name,
+                    RpcRefType { Name: { } } refType => refType.Name,
                     _ => throw new NotSupportedException()
                 };
 
@@ -135,7 +133,7 @@ namespace CookeRpc.AspNetCore
                 {
                     p.Name,
                     Type = GetIntrospectionType(p.Type),
-                    optional = (bool?) (p.IsOptional ? true : null)
+                    optional = (bool?)(p.IsOptional ? true : null)
                 };
         }
     }

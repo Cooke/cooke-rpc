@@ -2,13 +2,13 @@
 
 namespace CookeRpc.AspNetCore.Model.Types
 {
-    public class GenericType : RpcType
+    public class RpcGenericType : RpcType
     {
         public RpcType InnerType { get; }
         
         public IReadOnlyCollection<RpcType> TypeArguments { get; }
 
-        public GenericType(RpcType innerType, IReadOnlyCollection<RpcType> typeArguments)
+        public RpcGenericType(RpcType innerType, IReadOnlyCollection<RpcType> typeArguments)
         {
             InnerType = innerType;
             TypeArguments = typeArguments;

@@ -30,7 +30,7 @@ namespace CookeRpc.Tests
         {
             var serviceModel = _model.Services.First();
             var proc = serviceModel.Procedures.Single(x => x.Name == "GetString");
-            Assert.Equal("string", Assert.IsType<RefType>(proc.ReturnType).Name);
+            Assert.Equal("string", Assert.IsType<RpcRefType>(proc.ReturnType).Name);
         }
 
         [Fact]
@@ -46,7 +46,7 @@ namespace CookeRpc.Tests
         {
             var serviceModel = _model.Services.First();
             var proc = serviceModel.Procedures.Single(x => x.Name == "GetStringTask");
-            Assert.Equal("string", Assert.IsType<RefType>(proc.ReturnType).Name);
+            Assert.Equal("string", Assert.IsType<RpcRefType>(proc.ReturnType).Name);
         }
 
         [Fact]
@@ -62,14 +62,14 @@ namespace CookeRpc.Tests
         {
             var serviceModel = _model.Services.First();
             var returnType = serviceModel.Procedures.Single(x => x.Name == "GetPos").ReturnType;
-            var genericType = Assert.IsType<GenericType>(returnType);
-            Assert.Equal(genericType.InnerType, NativeTypes.Tuple);
-            Assert.IsType<RefType>(genericType.TypeArguments.First());
+            var genericType = Assert.IsType<RpcGenericType>(returnType);
+            Assert.Equal(genericType.InnerType, PrimitiveTypes.Tuple);
+            Assert.IsType<RpcRefType>(genericType.TypeArguments.First());
         }
 
         private static void AssertNullable(RpcType type)
         {
-            Assert.Contains(Assert.IsType<UnionType>(type).Types, t => t.Name == "null");
+            Assert.Contains(Assert.IsType<RpcUnionType>(type).Types, t => t.Name == "null");
         }
 
         [RpcService]

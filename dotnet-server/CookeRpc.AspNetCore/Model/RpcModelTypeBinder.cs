@@ -16,7 +16,7 @@ namespace CookeRpc.AspNetCore.Model
         {
             _rpcModel = rpcModel;
             _typesByName = rpcModel.TypesDefinitions.GroupBy(x => x.Name)
-                .ToDictionary(x => x.Key, x => (RpcType)new RefType(x.First()));
+                .ToDictionary(x => x.Key, x => (RpcType)new RpcRefType(x.First()));
         }
 
         public string GetName(Type type)
@@ -56,11 +56,11 @@ namespace CookeRpc.AspNetCore.Model
                               throw new InvalidOperationException("Failed to resolve type");
             var clrDataType = rpcDataType switch
             {
-                RefType customType => customType.TypeDefinition.ClrType,
-                GenericType genericType => genericType switch
+                RpcRefType customType => customType.TypeDefinition.ClrType,
+                RpcGenericType genericType => genericType switch
                 {
-                    var x when x.InnerType == NativeTypes.Array => typeof(List<>),
-                    var x when x.InnerType == NativeTypes.Map => typeof(Dictionary<,>),
+                    var x when x.InnerType == PrimitiveTypes.Array => typeof(List<>),
+                    var x when x.InnerType == PrimitiveTypes.Map => typeof(Dictionary<,>),
                     _ => throw new InvalidOperationException("Failed to resolve type")
                 },
                 _ => throw new InvalidOperationException("Failed to resolve type")
@@ -108,10 +108,10 @@ namespace CookeRpc.AspNetCore.Model
         private string SerializeType(RpcType rpcType)
         {
             switch (rpcType) {
-                case RefType:
+                case RpcRefType:
                     return rpcType.Name ?? throw new InvalidOperationException();
 
-                case GenericType standardType:
+                case RpcGenericType standardType:
                     if (!standardType.TypeArguments.Any()) {
                         return standardType.Name ?? throw new InvalidOperationException();
                     }

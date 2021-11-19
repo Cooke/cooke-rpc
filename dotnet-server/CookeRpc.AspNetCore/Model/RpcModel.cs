@@ -36,11 +36,18 @@ namespace CookeRpc.AspNetCore.Model
 
         public RpcType MapType(Type clrType)
         {
-            _options.OnMappingType?.Invoke(clrType, this);
-            
             var knownType = _typeMap.GetValueOrDefault(clrType);
             if (knownType != null) {
                 return knownType;
+            }
+
+            if (_options.OnMappingNewType != null) {
+                _options.OnMappingNewType.Invoke(clrType, this);
+                
+                var knownType2 = _typeMap.GetValueOrDefault(clrType);
+                if (knownType2 != null) {
+                    return knownType2;
+                }
             }
 
             if (!_options.TypeFilter(clrType)) {
@@ -58,7 +65,7 @@ namespace CookeRpc.AspNetCore.Model
                 var keyType = genericDictionary.GenericTypeArguments[0];
                 var valueType = genericDictionary.GenericTypeArguments[1];
                 var typeArguments = new List<RpcType>();
-                var genericType = new GenericType(NativeTypes.Map, typeArguments);
+                var genericType = new RpcGenericType(PrimitiveTypes.Map, typeArguments);
                 _typeMap.Add(clrType, genericType);
                 typeArguments.AddRange(new[] { MapType(keyType), MapType(valueType) });
                 return genericType;
@@ -67,7 +74,7 @@ namespace CookeRpc.AspNetCore.Model
             var genericClrArray = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IEnumerable<>));
             if (genericClrArray != null) {
                 var typeArguments = new List<RpcType>();
-                var genericType = new GenericType(NativeTypes.Array, typeArguments);
+                var genericType = new RpcGenericType(PrimitiveTypes.Array, typeArguments);
                 _typeMap.Add(clrType, genericType);
                 typeArguments.Add(MapType(genericClrArray.GenericTypeArguments[0]));
                 return genericType;
@@ -75,8 +82,8 @@ namespace CookeRpc.AspNetCore.Model
 
             var genericNullable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Nullable<>));
             if (genericNullable != null) {
-                var typeArguments = new List<RpcType> { NativeTypes.Null };
-                var unionType = new UnionType(typeArguments);
+                var typeArguments = new List<RpcType> { PrimitiveTypes.Null };
+                var unionType = new RpcUnionType(typeArguments);
                 _typeMap.Add(clrType, unionType);
                 typeArguments.Add(MapType(genericNullable.GetGenericArguments().Single()));
                 return unionType;
@@ -85,7 +92,7 @@ namespace CookeRpc.AspNetCore.Model
             var optional = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Optional<>));
             if (optional != null) {
                 var typeArguments = new List<RpcType>();
-                var genericType = new GenericType(NativeTypes.Optional, typeArguments);
+                var genericType = new RpcGenericType(PrimitiveTypes.Optional, typeArguments);
                 _typeMap.Add(clrType, genericType);
                 typeArguments.Add(MapType(optional.GetGenericArguments().Single()));
                 return genericType;
@@ -93,7 +100,7 @@ namespace CookeRpc.AspNetCore.Model
 
             if (clrType.IsAssignableTo(typeof(ITuple))) {
                 var typeArguments = new List<RpcType>();
-                var genericType = new GenericType(NativeTypes.Tuple, typeArguments);
+                var genericType = new RpcGenericType(PrimitiveTypes.Tuple, typeArguments);
                 _typeMap.Add(clrType, genericType);
                 typeArguments.AddRange(clrType.GenericTypeArguments.Select(MapType));
                 return genericType;
@@ -126,7 +133,7 @@ namespace CookeRpc.AspNetCore.Model
                 throw new InvalidOperationException($"Type {clrType} is already mapped to {knownType}");
             }
 
-            if (rpcType is RefType r && !_typesDefinitions.Contains(r.TypeDefinition)) {
+            if (rpcType is RpcRefType r && !_typesDefinitions.Contains(r.TypeDefinition)) {
                 _typesDefinitions.Add(r.TypeDefinition);
             }
 
@@ -136,7 +143,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public RpcType MapType(Type clrType, RpcTypeDefinition rpcTypeDefinition)
         {
-            return MapType(clrType, new RefType(rpcTypeDefinition));
+            return MapType(clrType, new RpcRefType(rpcTypeDefinition));
         }
 
         public void AddService(Type rpcControllerType)
@@ -160,7 +167,7 @@ namespace CookeRpc.AspNetCore.Model
                 List<RpcParameterModel> rpcParameterModels = new();
                 foreach (var parameterInfo in parameterInfos) {
                     var paraType = ReflectionHelper.IsNullable(parameterInfo)
-                        ? new UnionType(new[] { NativeTypes.Null, MapType(parameterInfo.ParameterType) })
+                        ? new RpcUnionType(new[] { PrimitiveTypes.Null, MapType(parameterInfo.ParameterType) })
                         : MapType(parameterInfo.ParameterType);
 
                     var paraModel = new RpcParameterModel(parameterInfo.Name ?? throw new InvalidOperationException(),
@@ -171,7 +178,7 @@ namespace CookeRpc.AspNetCore.Model
 
                 var rpcReturnType = MapType(returnType);
                 var returnTypeModel = ReflectionHelper.IsNullableReturn(method)
-                    ? new UnionType(new[] { NativeTypes.Null, rpcReturnType })
+                    ? new RpcUnionType(new[] { PrimitiveTypes.Null, rpcReturnType })
                     : rpcReturnType;
 
                 var procModel = new RpcProcedureModel(_options.ProcedureNameFormatter(method), rpcDelegate,
@@ -185,7 +192,7 @@ namespace CookeRpc.AspNetCore.Model
 
         private RpcType AddTypeDefinition(RpcTypeDefinition typeDefinition)
         {
-            var customType = new RefType(typeDefinition);
+            var customType = new RpcRefType(typeDefinition);
             _typesDefinitions.Add(typeDefinition);
             _typeMap.Add(typeDefinition.ClrType, customType);
             return customType;
@@ -207,19 +214,19 @@ namespace CookeRpc.AspNetCore.Model
                     new[] { rpcType }));
             }
             else {
-                rpcType = AddTypeDefinition(new RpcInterfaceDefinition(typeName, type, props, interfaces));
+                rpcType = AddTypeDefinition(new RpcObjectDefinition(typeName, type, props, interfaces));
             }
 
             if (type.BaseType != typeof(object) && type.BaseType != null) {
                 var rpcBaseType = MapType(type.BaseType);
-                if (rpcBaseType is RefType { TypeDefinition: RpcInterfaceDefinition }) {
+                if (rpcBaseType is RpcRefType { TypeDefinition: RpcInterfaceDefinition }) {
                     interfaces.Add(rpcBaseType);
                 }
             }
 
             foreach (var @interface in type.GetInterfaces().Where(_options.InterfaceFilter)) {
                 var interfaceRpcType = MapType(@interface);
-                if (interfaceRpcType is RefType { TypeDefinition: RpcInterfaceDefinition }) {
+                if (interfaceRpcType is RpcRefType { TypeDefinition: RpcInterfaceDefinition }) {
                     interfaces.Add(interfaceRpcType);
                 }
             }
@@ -263,7 +270,7 @@ namespace CookeRpc.AspNetCore.Model
                 var propTypeRef = MapType(propertyInfoPropertyType1);
                 var propertyDefinition = new RpcPropertyDefinition(_options.MemberNameFormatter(memberInfo),
                     _options.IsMemberNullable(memberInfo)
-                        ? new UnionType(new[] { NativeTypes.Null, propTypeRef })
+                        ? new RpcUnionType(new[] { PrimitiveTypes.Null, propTypeRef })
                         : propTypeRef, memberInfo)
                 {
                     IsOptional = _options.IsMemberOptional(memberInfo),

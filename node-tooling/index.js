@@ -57,38 +57,29 @@ function generateRpcTs(meta) {
   stream.write(`import { createRpcInvoker } from "cooke-rpc";\n\n`);
 
   // Register all types that requires a discriminator due to participating in polymorphic scenarios
-  const requiresDiscriminator = new Set();
+  const discriminatedTypes = new Set();
   for (const type of meta.types) {
     if (type.kind === "union") {
       for (const memberType of type.types) {
-        requiresDiscriminator.add(memberType.name);
+        discriminatedTypes.add(memberType.name);
       }
     } else if (type.kind === "object") {
-      if (type.interfaces && type.interfaces.length > 0) {
-        requiresDiscriminator.add(type.name);
-      }
-
-      if (type.base) {
-        requiresDiscriminator.add(type.name);
-        requiresDiscriminator.add(type.base);
+      if (type.implements && type.implements.length > 0) {
+        discriminatedTypes.add(type.name);
       }
     }
   }
 
-  const hasGeneratedUnion = new Set();
+  var generatedUnionTypes = new Set();
   for (const type of meta.types) {
-    if (type.kind === "object") {
-      if (type.base) {
-        hasGeneratedUnion.add(type.base);
-      }
-    } else if (type.kind === "interface") {
-      hasGeneratedUnion.add(type.name);
+    if (type.kind === "interface") {
+      generatedUnionTypes.add(type.name);
     }
   }
 
   function formatType(type) {
     if (typeof type === "string") {
-      return hasGeneratedUnion.has(type) && !defaultUnion
+      return generatedUnionTypes.has(type) && !defaultUnion
         ? type + "Union"
         : type;
     }
@@ -161,38 +152,20 @@ function generateRpcTs(meta) {
       }
       stream.write(";\n\n");
     } else if (type.kind === "object") {
-      stream.write(
-        `export interface ${type.name}${
-          hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : ""
-        } `
-      );
+      stream.write(`export interface ${type.name} `);
 
-      if ((type.interfaces && type.interfaces.length > 0) || type.base) {
+      if ((type.implements && type.implements.length > 0) || type.base) {
         stream.write("extends ");
         stream.write(
-          [
-            type.base
-              ? `Omit<${type.base}${
-                  hasGeneratedUnion.has(type.base) && defaultUnion
-                    ? "Interface"
-                    : ""
-                }, "$type">`
-              : null,
-            ...(type.interfaces ?? []),
-          ]
-            .filter((x) => !!x)
-            .map(
-              (i) =>
-                i +
-                (hasGeneratedUnion.has(i) && defaultUnion ? "Interface" : "")
-            )
+          (type.implements ?? [])
+            .map((i) => i + (defaultUnion ? "Interface" : ""))
             .join(", ")
         );
         stream.write(" ");
       }
 
       stream.write("{\n");
-      if (requiresDiscriminator.has(type.name)) {
+      if (discriminatedTypes.has(type.name)) {
         stream.write(`  $type: "${type.name}";\n`);
       } else {
         stream.write(`  $type?: "${type.name}";\n`);
@@ -202,46 +175,16 @@ function generateRpcTs(meta) {
 
       stream.write("\n}");
       stream.write(";\n\n");
-
-      if (hasGeneratedUnion.has(type.name)) {
-        stream.write(
-          `export type ${type.name}${!defaultUnion ? "Union" : ""} = `
-        );
-        stream.write(
-          [
-            type.name +
-              (hasGeneratedUnion.has(type.name) && defaultUnion
-                ? "Interface"
-                : ""),
-            ...meta.types
-              .filter((x) => x.base === type.name)
-              .map(
-                (x) =>
-                  x.name +
-                  (hasGeneratedUnion.has(x.name) && !defaultUnion
-                    ? "Union"
-                    : "")
-              ),
-          ].join(" | ")
-        );
-        stream.write(";\n\n");
-      }
     } else if (type.kind === "interface") {
       stream.write(
-        `export interface ${type.name}${
-          hasGeneratedUnion.has(type.name) && defaultUnion ? "Interface" : ""
-        } `
+        `export interface ${type.name}${defaultUnion ? "Interface" : ""} `
       );
 
-      if (type.interfaces && type.interfaces.length > 0) {
+      if (type.extends && type.extends.length > 0) {
         stream.write("extends ");
         stream.write(
-          type.interfaces
-            .map(
-              (i) =>
-                i +
-                (hasGeneratedUnion.has(i) && defaultUnion ? "Interface" : "")
-            )
+          type.extends
+            .map((i) => i + (defaultUnion ? "Interface" : ""))
             .join(", ")
         );
         stream.write(" ");
@@ -252,24 +195,19 @@ function generateRpcTs(meta) {
       stream.write("\n}");
       stream.write(";\n\n");
 
-      if (hasGeneratedUnion.has(type.name)) {
-        stream.write(
-          `export type ${type.name}${!defaultUnion ? "Union" : ""} = `
-        );
-        const implementers = [
-          ...meta.types
-            .filter((x) => x.interfaces?.includes(type.name))
-            .map(
-              (x) =>
-                x.name +
-                (hasGeneratedUnion.has(x.name) && !defaultUnion ? "Union" : "")
-            ),
-        ];
-        stream.write(
-          implementers.length > 0 ? implementers.join(" | ") : "never"
-        );
-        stream.write(";\n\n");
-      }
+      stream.write(
+        `export type ${type.name}${!defaultUnion ? "Union" : ""} = `
+      );
+      const implementers = meta.types
+        .filter(
+          (x) =>
+            x.implements?.includes(type.name) || x.extends?.includes(type.name)
+        )
+        .map((x) => x.name);
+      stream.write(
+        implementers.length > 0 ? implementers.join(" | ") : "never"
+      );
+      stream.write(";\n\n");
     } else if (type.kind === "enum") {
       stream.write(`export enum ${type.name} {\n`);
       stream.write(
@@ -283,10 +221,8 @@ function generateRpcTs(meta) {
           .join(",\n")
       );
       stream.write("\n}\n\n");
-    } else if (type.kind === "scalar") {
-      stream.write(
-        `export type ${type.name} = ${formatType(type.implementationType)};\n\n`
-      );
+    } else {
+      throw new Error(`Unknown RPC type kind: ${type.kind}`);
     }
   }
 
