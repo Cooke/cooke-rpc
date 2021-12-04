@@ -117,20 +117,7 @@ namespace CookeRpc.AspNetCore.Model
                     return new RpcReturnValue(context.Invocation.Id, new Optional<object?>(returnValue));
                 };
 
-                // Authorization
-                RpcDelegate authDelegate = async context =>
-                {
-                    var authorized = await AuthorizeGuard(methodInfo, context.ServiceProvider, context.User);
-                    if (!authorized)
-                    {
-                        return new RpcError(context.Invocation.Id, Constants.ErrorCodes.AuthorizationError,
-                            "Not authorized", null);
-                    }
-
-                    return await execDelegate(context);
-                };
-
-                return authDelegate;
+                return CreateAuthorizeFunc(methodInfo, execDelegate);
             });
 
             return (executeLazy, rpcArguments, returnType);
@@ -196,27 +183,41 @@ namespace CookeRpc.AspNetCore.Model
             return (outerArguments, methodArguments);
         }
 
-        private static async Task<bool> AuthorizeGuard(MethodInfo methodInfo, IServiceProvider sp, ClaimsPrincipal user)
+        private static RpcDelegate CreateAuthorizeFunc(MethodInfo methodInfo, RpcDelegate next)
         {
             if (methodInfo.GetCustomAttribute<AllowAnonymousAttribute>() != null)
             {
-                return true;
+                return next;
             }
 
             var authData = methodInfo.GetCustomAttributes<AuthorizeAttribute>()
-                .Concat(methodInfo.DeclaringType!.GetCustomAttributes<AuthorizeAttribute>()).Cast<IAuthorizeData>();
+                .Concat(methodInfo.DeclaringType!.GetCustomAttributes<AuthorizeAttribute>()).Cast<IAuthorizeData>().ToArray();
 
             if (!authData.Any())
             {
-                return true;
+                return next;
             }
 
-            var authorizationService = sp.GetRequiredService<IAuthorizationService>();
-            var policyProvider = sp.GetRequiredService<IAuthorizationPolicyProvider>();
+            return async context =>
+            {
+                var authorized = await IsAuthorized(context, authData);;
+                if (!authorized)
+                {
+                    return new RpcError(context.Invocation.Id, Constants.ErrorCodes.AuthorizationError,
+                        "Not authorized", null);
+                }
+
+                return await next(context);
+            };
+        }
+
+        private static async Task<bool> IsAuthorized(RpcContext context, IEnumerable<IAuthorizeData> authData)
+        {
+            var authorizationService = context.ServiceProvider.GetRequiredService<IAuthorizationService>();
+            var policyProvider = context.ServiceProvider.GetRequiredService<IAuthorizationPolicyProvider>();
             var policy = await AuthorizationPolicy.CombineAsync(policyProvider, authData);
             var authResult =
-                await authorizationService.AuthorizeAsync(user, policy ?? throw new InvalidOperationException());
-
+                await authorizationService.AuthorizeAsync(context.User, policy ?? throw new InvalidOperationException());
             return authResult.Succeeded;
         }
     }

@@ -155,7 +155,7 @@ namespace CookeRpc.AspNetCore.Model
             var serviceName = _options.ServiceNameFormatter(rpcControllerType);
 
             var procedures = new List<RpcProcedureModel>();
-            var serviceModel = new RpcServiceModel(rpcControllerType, serviceName, procedures);
+            var serviceModel = new RpcServiceModel(rpcControllerType, serviceName, procedures, rpcControllerType.GetCustomAttributes().ToArray());
 
             var methods = rpcControllerType.GetMethods(BindingFlags.Public | BindingFlags.Instance)
                 .Where(x => x.DeclaringType != typeof(object));
@@ -182,7 +182,7 @@ namespace CookeRpc.AspNetCore.Model
                     : rpcReturnType;
 
                 var procModel = new RpcProcedureModel(_options.ProcedureNameFormatter(method), rpcDelegate,
-                    returnTypeModel, rpcParameterModels);
+                    returnTypeModel, rpcParameterModels, method.GetCustomAttributes().ToArray());
 
                 procedures.Add(procModel);
             }
