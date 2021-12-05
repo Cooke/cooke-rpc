@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CookeRpc.AspNetCore.Core;
@@ -92,7 +93,8 @@ namespace CookeRpc.AspNetCore.JsonSerialization
         {
             return (typeToConvert.IsClass || typeToConvert.IsInterface) &&
                    _typeBinder.ShouldResolveType(typeToConvert) &&
-                   !typeToConvert.IsAssignableTo(typeof(IEnumerable)) && !typeToConvert.IsAssignableTo(typeof(string));
+                   !typeToConvert.IsAssignableTo(typeof(IEnumerable)) && !typeToConvert.IsAssignableTo(typeof(string)) &&
+                   typeToConvert.GetCustomAttribute<JsonConverterAttribute>() == null;
         }
 
         public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options)
