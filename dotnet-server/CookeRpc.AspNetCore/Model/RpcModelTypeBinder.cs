@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using CookeRpc.AspNetCore.Core;
+using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
 
 namespace CookeRpc.AspNetCore.Model
@@ -11,26 +12,30 @@ namespace CookeRpc.AspNetCore.Model
     {
         private readonly RpcModel _rpcModel;
         private readonly Dictionary<string, RpcType> _typesByName;
+        private readonly Dictionary<Type, RpcTypeDefinition> _typesByClrType;
 
         public RpcModelTypeBinder(RpcModel rpcModel)
         {
             _rpcModel = rpcModel;
-            _typesByName = rpcModel.TypesDefinitions.GroupBy(x => x.Name)
-                .ToDictionary(x => x.Key, x => (RpcType)new RpcRefType(x.First()));
+            _typesByName = rpcModel.TypesDefinitions.Where(IsConcrete).GroupBy(x => x.Name).ToDictionary(x => x.Key,
+                x => (RpcType)new RpcRefType(x.First()));
+            _typesByClrType = rpcModel.TypesDefinitions.Where(IsConcrete).GroupBy(x => x.ClrType)
+                .ToDictionary(x => x.Key, x => x.First());
+
+            bool IsConcrete(RpcTypeDefinition x)
+            {
+                return x is not (RpcInterfaceDefinition or RpcUnionDefinition);
+            }
         }
 
         public string GetName(Type type)
         {
-            var rpcType = _rpcModel.MappedTypes.GetValueOrDefault(type);
-            if (rpcType == null) {
-                throw new InvalidOperationException($"Cannot resolve RPC type for CLR type: {type}");
+            var typeDefinition = _typesByClrType.GetValueOrDefault(type);
+            if (typeDefinition == null) {
+                throw new InvalidOperationException($"Cannot resolve RPC type definition for CLR type: {type}");
             }
 
-            if (rpcType.Name == null) {
-                throw new InvalidOperationException($"Cannot resolve type name for RPC type: {rpcType}");
-            }
-
-            return rpcType.Name;
+            return typeDefinition.Name;
         }
 
         public Type ResolveType(string typeName, Type targetType) => Resolve(Parse(typeName), targetType);
