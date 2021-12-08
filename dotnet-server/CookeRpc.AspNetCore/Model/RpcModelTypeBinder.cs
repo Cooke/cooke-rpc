@@ -30,6 +30,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public string GetName(Type type)
         {
+            // Theoretically this may be insufficient for a generic type hierarchy  
             var typeDefinition = _typesByClrType.GetValueOrDefault(type);
             if (typeDefinition == null) {
                 throw new InvalidOperationException($"Cannot resolve RPC type definition for CLR type: {type}");
