@@ -59,7 +59,7 @@ namespace CookeRpc.AspNetCore.Model
         private Type Resolve(JsonRpcTypeRef refDataType, Type targetType)
         {
             var rpcDataType = _typesByName.GetValueOrDefault(refDataType.Name) ??
-                              throw new InvalidOperationException("Failed to resolve type");
+                              throw CreateResolveException();
             var clrDataType = rpcDataType switch
             {
                 RpcRefType customType => customType.TypeDefinition.ClrType,
@@ -67,9 +67,9 @@ namespace CookeRpc.AspNetCore.Model
                 {
                     var x when x.InnerType == PrimitiveTypes.Array => typeof(List<>),
                     var x when x.InnerType == PrimitiveTypes.Map => typeof(Dictionary<,>),
-                    _ => throw new InvalidOperationException("Failed to resolve type")
+                    _ => throw CreateResolveException()
                 },
-                _ => throw new InvalidOperationException("Failed to resolve type")
+                _ => throw CreateResolveException()
             };
 
             // Generic
@@ -81,6 +81,11 @@ namespace CookeRpc.AspNetCore.Model
             }
 
             return clrDataType;
+
+            InvalidOperationException CreateResolveException()
+            {
+                return new InvalidOperationException($"Failed to resolve type {refDataType.Name} to target type {targetType.Name}");
+            }
         }
 
         // map<int,array<string>>
