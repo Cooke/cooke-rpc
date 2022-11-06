@@ -44,6 +44,9 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                 {
                     map.Add(propertyName, JsonSerializer.Deserialize(ref reader, ctorParameterInfo.ParameterType, options));
                 }
+                else {
+                    reader.Skip();
+                }
 
                 reader.Read();
             }
