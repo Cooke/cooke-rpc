@@ -69,13 +69,15 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                 return;
             }
 
-            var runtimeType = value.GetType();
+            if (value.GetType().IsAssignableTo(typeof(IEnumerable)) || value is string) {
+                JsonSerializer.Serialize(writer, value, value.GetType(), options);
+                return;
+            }
+
             writer.WriteStartObject();
             writer.WritePropertyName("$type");
-            writer.WriteStringValue(_typeBinder.GetName(runtimeType));
-
+            writer.WriteStringValue(_typeBinder.GetName(value.GetType()));
             SerializerTools.WriteObjectProperties(writer, value, options);
-
             writer.WriteEndObject();
         }
     }

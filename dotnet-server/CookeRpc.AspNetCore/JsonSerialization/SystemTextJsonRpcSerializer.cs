@@ -37,7 +37,7 @@ namespace CookeRpc.AspNetCore.JsonSerialization
         protected override void SerializeReturnValue(IBufferWriter<byte> bufferWriter, object? valueValue)
         {
             var utf8JsonWriter = new Utf8JsonWriter(bufferWriter);
-            JsonSerializer.Serialize(utf8JsonWriter, valueValue, _payloadSerializerOptions);
+            JsonSerializer.Serialize(utf8JsonWriter, valueValue, valueValue?.GetType() ?? typeof(object), _payloadSerializerOptions);
             utf8JsonWriter.Flush();
         }
     }

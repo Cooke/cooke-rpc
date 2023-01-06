@@ -45,6 +45,17 @@ namespace CookeRpc.Tests
         }
         
         [Fact]
+        public async Task SerializeEnumResult()
+        {
+            var client = _host.GetTestClient();
+            var response = await client.PostAsJsonAsync("/rpc",
+                new object[] {new {Id = "123", Service = "TestController", Proc = "Ask"}});
+            response.EnsureSuccessStatusCode();
+
+            Assert.Equal("[{\"id\":\"123\"},\"No\"]", await response.Content.ReadAsStringAsync());
+        }
+        
+        [Fact]
         public async Task InvokeAdvanced()
         {
             var client = _host.GetTestClient();
@@ -74,6 +85,8 @@ namespace CookeRpc.Tests
             public TestModel Fetch() => new();
 
             public Fruit EchoFruit(Fruit fruit) => fruit;
+            
+            public YesOrNo Ask() => YesOrNo.No;
         }
 
         public void Dispose()
@@ -102,6 +115,12 @@ namespace CookeRpc.Tests
 
         public class RedApple : Apple
         {
+        }
+
+        public enum YesOrNo
+        {
+            Yes,
+            No
         }
     }
 }

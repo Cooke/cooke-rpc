@@ -78,30 +78,19 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             foreach (var propertyInfo in value!.GetType()
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy))
             {
-                WriteValue(propertyInfo.Name, propertyInfo.GetValue(value), propertyInfo.PropertyType);
+                WriteProperty(propertyInfo.Name, propertyInfo.GetValue(value), propertyInfo.PropertyType);
             }
 
             foreach (var fieldInfo in value!.GetType()
                 .GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy))
             {
-                WriteValue(fieldInfo.Name, fieldInfo.GetValue(value), fieldInfo.FieldType);
+                WriteProperty(fieldInfo.Name, fieldInfo.GetValue(value), fieldInfo.FieldType);
             }
 
-            void WriteValue(string propName, object? propValue, Type propType)
+            void WriteProperty(string propName, object? propValue, Type propType)
             {
                 writer.WritePropertyName(options.PropertyNamingPolicy?.ConvertName(propName) ?? propName);
-
-                // The JsonSerializer special treats serialization of object types and then uses the runtime type (obj.GetType())
-                // which will then skip serializing the $type property. Because of this we special treat the object type
-                if (propValue != null && propType == typeof(object) && propValue.GetType().IsAssignableTo(typeof(IEnumerable)) == false)
-                {
-                    var converter = (JsonConverter<object>) options.GetConverter(propType);
-                    converter.Write(writer, propValue, options);
-                }
-                else
-                {
-                    JsonSerializer.Serialize(writer, propValue, propType, options);
-                }
+                JsonSerializer.Serialize(writer, propValue, propType, options);
             }
         }
     }

@@ -45,7 +45,7 @@ namespace CookeRpc.Tests
 
             _testOutputHelper.WriteLine(json);
             Assert.Equal(
-                "{\"Fruits\":[{\"$Apple\":{\"Radius\":3}},{\"$Banana\":{\"Angle\":30}}],\"Size\":10,\"Decoration\":{\"$RosetteDecoration\":{\"Length\":15,\"Color\":\"Pink\",\"DecorationFruit\":{\"$Apple\":{\"Radius\":33}}}}}",
+                "{\"$FruitBasket10Size\":{\"Fruits\":[{\"$Apple\":{\"Radius\":3}},{\"$Banana\":{\"Angle\":30}}],\"Size\":10,\"Decoration\":{\"$RosetteDecoration\":{\"Length\":15,\"Color\":\"Pink\",\"DecorationFruit\":{\"$Apple\":{\"Radius\":33}}}}}}",
                 json);
         }
 

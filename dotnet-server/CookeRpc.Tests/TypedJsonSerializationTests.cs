@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -38,18 +39,24 @@ namespace CookeRpc.Tests
             var json = JsonSerializer.Serialize<object>(
                 new FruitBasket10Size
                 {
-                    Fruits = new IFruit[] { new Apple(), new Banana() },
+                    Fruits = new IFruit[]
+                    {
+                        new Apple(), new Banana()
+                    },
                     Decoration = new RosetteDecoration
                     {
                         Length = 15,
                         Color = "Pink",
-                        DecorationFruit = new Apple { Radius = 33 }
+                        DecorationFruit = new Apple
+                        {
+                            Radius = 33
+                        }
                     },
                 }, _options);
 
             _testOutputHelper.WriteLine(json);
             Assert.Equal(
-                "{\"Fruits\":[{\"$type\":\"Apple\",\"Radius\":3},{\"$type\":\"Banana\",\"Angle\":30}],\"Size\":10,\"Decoration\":{\"$type\":\"RosetteDecoration\",\"Length\":15,\"Color\":\"Pink\",\"DecorationFruit\":{\"$type\":\"Apple\",\"Radius\":33}}}",
+                "{\"$type\":\"FruitBasket10Size\",\"Fruits\":[{\"$type\":\"Apple\",\"Radius\":3},{\"$type\":\"Banana\",\"Angle\":30}],\"Size\":10,\"Decoration\":{\"$type\":\"RosetteDecoration\",\"Length\":15,\"Color\":\"Pink\",\"DecorationFruit\":{\"$type\":\"Apple\",\"Radius\":33}}}",
                 json);
         }
 
@@ -93,15 +100,37 @@ namespace CookeRpc.Tests
         [Fact]
         public void SerializeWithTypeInfoOfNestedObjects()
         {
-            var json = JsonSerializer.Serialize(new ObjectWrapper { Value = new Banana() }, _options);
+            var json = JsonSerializer.Serialize(new ObjectWrapper
+            {
+                Value = new Banana()
+            }, _options);
             Assert.Equal("{\"Value\":{\"$type\":\"Banana\",\"Angle\":30}}", json);
+        }
+
+        [Fact]
+        public void SerializeArrayAtObjectProperty()
+        {
+            var json = JsonSerializer.Serialize(new ObjectWrapper
+            {
+                Value = new Banana[]
+                {
+                    new Banana()
+                }
+            }, _options);
+            Assert.Equal("{\"Value\":[{\"$type\":\"Banana\",\"Angle\":30}]}", json);
         }
 
         [Fact]
         public void SerializeWithDeserializedCallbacks()
         {
             var json = JsonSerializer.Serialize(
-                new OnDeserializedTypeParent(new OnDeserializedTypeChild { Text = "child" }) { Text = "parent" },
+                new OnDeserializedTypeParent(new OnDeserializedTypeChild
+                {
+                    Text = "child"
+                })
+                {
+                    Text = "parent"
+                },
                 _options);
 
             var parent = JsonSerializer.Deserialize<OnDeserializedTypeParent>(json, _options)!;
@@ -170,7 +199,10 @@ namespace CookeRpc.Tests
         {
             public string Color { get; set; } = "Gray";
 
-            public IFruit DecorationFruit { get; set; } = new Banana { Angle = 333 };
+            public IFruit DecorationFruit { get; set; } = new Banana
+            {
+                Angle = 333
+            };
         }
 
         public class RosetteDecoration : Decoration
@@ -190,7 +222,15 @@ namespace CookeRpc.Tests
 
             public bool ShouldResolveType(Type targetType)
             {
-                return targetType == typeof(object) || targetType.IsInterface || targetType.IsAbstract;
+                if (targetType.IsAssignableTo(typeof(IEnumerable))) {
+                    return false;
+                }
+                
+                return targetType == typeof(object) || 
+                       targetType.IsInterface || 
+                       targetType.IsAbstract ||
+                       targetType.GetInterfaces().Length > 0 || 
+                       targetType.BaseType != typeof(object);
             }
         }
     }
