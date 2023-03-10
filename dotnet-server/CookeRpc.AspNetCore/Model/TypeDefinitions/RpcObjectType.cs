@@ -4,19 +4,23 @@ using CookeRpc.AspNetCore.Model.Types;
 
 namespace CookeRpc.AspNetCore.Model.TypeDefinitions
 {
-    public class RpcObject : RpcType
+    public class RpcObjectType : RpcType
     {
-        public RpcObject(
+        public RpcObjectType(
             Type clrType,
             IReadOnlyCollection<RpcPropertyDefinition> properties,
-            IReadOnlyCollection<RpcType> extends) : base(clrType)
+            IReadOnlyCollection<RpcType> extends,
+            bool isAbstract) : base(clrType)
         {
             Properties = properties;
             Extends = extends;
+            IsAbstract = isAbstract;
         }
 
         public IReadOnlyCollection<RpcPropertyDefinition> Properties { get; }
 
         public IReadOnlyCollection<RpcType> Extends { get; }
+        
+        public bool IsAbstract { get; }
     }
 }

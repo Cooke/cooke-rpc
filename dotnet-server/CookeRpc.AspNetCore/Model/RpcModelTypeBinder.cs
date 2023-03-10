@@ -17,9 +17,9 @@ namespace CookeRpc.AspNetCore.Model
         public RpcModelTypeBinder(RpcModel rpcModel)
         {
             _rpcModel = rpcModel;
-            _typesByName = rpcModel.TypeDeclarations.Where(IsConcrete).ToDictionary(x => x.Name, x => x);
-            _typesByClrType = rpcModel.TypeDeclarations.Where(IsConcrete).ToDictionary(x => x.Type.ClrType, x => x);
-            bool IsConcrete(RpcTypeDeclaration x) => x.Type is not RpcUnionType;
+            _typesByName = rpcModel.TypeDeclarations.ToDictionary(x => x.Name, x => x);
+            _typesByClrType = rpcModel.TypeDeclarations.Where(IsObjectType).ToDictionary(x => x.Type.ClrType, x => x);
+            bool IsObjectType(RpcTypeDeclaration x) => x.Type is RpcObjectType;
         }
 
         public string GetName(Type type)
@@ -57,6 +57,7 @@ namespace CookeRpc.AspNetCore.Model
             var clrDataType = declaration.Type switch
             {
                 RpcPrimitiveType customType => customType.ClrType,
+                RpcObjectType objectType => objectType.ClrType,
                 RpcGenericType genericType => genericType switch
                 {
                     var x when x.TypeDefinition == PrimitiveTypes.Array => typeof(List<>),

@@ -21,9 +21,9 @@ namespace CookeRpc.Tests
             {
                 TypeFilter = type => type.GetCustomAttribute<IgnoreAttribute>() == null
             });
-            builder.AddType(typeof(Fruit));
-            builder.AddType(typeof(TestModel[]));
-            builder.AddType(typeof(Dictionary<string, string>));
+            builder.MapType(typeof(Fruit));
+            builder.MapType(typeof(TestModel[]));
+            builder.MapType(typeof(Dictionary<string, string>));
             _model = builder.Build();
         }
 

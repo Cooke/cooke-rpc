@@ -34,7 +34,7 @@ namespace CookeRpc.AspNetCore
 
         public static RpcType AddType<T>(this RpcModelBuilder model)
         {
-            return model.AddType(typeof(T));
+            return model.MapType(typeof(T));
         }
 
         // public static RpcType AddType<T>(this RpcModelBuilder model, RpcType rpcType)

@@ -92,6 +92,7 @@ namespace CookeRpc.Tests
             var client = _host.GetTestClient();
             var metadata = await client.GetFromJsonAsync<JsonDocument>("/rpc/introspection");
             Assert.NotNull(metadata);
+            _testOutputHelper.WriteLine(metadata.RootElement.ToString());
         }
 
         [RpcService]

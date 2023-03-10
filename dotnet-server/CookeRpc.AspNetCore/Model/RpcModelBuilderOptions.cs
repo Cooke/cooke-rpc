@@ -13,59 +13,26 @@ namespace CookeRpc.AspNetCore.Model
 {
     public class RpcModelBuilderOptions
     {
-        public static readonly ImmutableDictionary<Type, RpcType> DefaultTypeMap = new Dictionary<Type, RpcType>
-        {
+        public static readonly ImmutableDictionary<Type, RpcPrimitiveType> DefaultPrimitiveTypeMap =
+            new Dictionary<Type, RpcPrimitiveType>
             {
-                typeof(string), PrimitiveTypes.String
-            },
-            {
-                typeof(int), PrimitiveTypes.Number
-            },
-            {
-                typeof(long), PrimitiveTypes.Number
-            },
-            {
-                typeof(ulong), PrimitiveTypes.Number
-            },
-            {
-                typeof(uint), PrimitiveTypes.Number
-            },
-            {
-                typeof(short), PrimitiveTypes.Number
-            },
-            {
-                typeof(ushort), PrimitiveTypes.Number
-            },
-            {
-                typeof(float), PrimitiveTypes.Number
-            },
-            {
-                typeof(double), PrimitiveTypes.Number
-            },
-            {
-                typeof(bool), PrimitiveTypes.Boolean
-            },
-            {
-                typeof(TimeSpan), PrimitiveTypes.String
-            },
-            {
-                typeof(DateTime), PrimitiveTypes.String
-            },
-            {
-                typeof(DateTimeOffset), PrimitiveTypes.String
-            },
-            {
-                typeof(decimal), PrimitiveTypes.Number
-            },
-            {
-                typeof(void), PrimitiveTypes.Void
-            },
-            {
-                typeof(object), PrimitiveTypes.Unknown
-            },
-        }.ToImmutableDictionary();
-
-        public static readonly ImmutableList<RpcTypeDeclaration> DefaultTypeDeclarations = PrimitiveTypes.All.Select(x => new RpcTypeDeclaration(x.Name, x)).ToImmutableList();
+                { typeof(string), PrimitiveTypes.String },
+                { typeof(int), PrimitiveTypes.Number },
+                { typeof(long), PrimitiveTypes.Number },
+                { typeof(ulong), PrimitiveTypes.Number },
+                { typeof(uint), PrimitiveTypes.Number },
+                { typeof(short), PrimitiveTypes.Number },
+                { typeof(ushort), PrimitiveTypes.Number },
+                { typeof(float), PrimitiveTypes.Number },
+                { typeof(double), PrimitiveTypes.Number },
+                { typeof(bool), PrimitiveTypes.Boolean },
+                { typeof(TimeSpan), PrimitiveTypes.String },
+                { typeof(DateTime), PrimitiveTypes.String },
+                { typeof(DateTimeOffset), PrimitiveTypes.String },
+                { typeof(decimal), PrimitiveTypes.Number },
+                { typeof(void), PrimitiveTypes.Void },
+                { typeof(object), PrimitiveTypes.Unknown },
+            }.ToImmutableDictionary();
 
         public Func<Type, bool> InterfaceFilter { get; init; } =
             t => t.Namespace != null && !t.Namespace.StartsWith("System");
@@ -103,9 +70,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public Func<Type, string> ServiceNameFormatter { get; init; } = type => type.Name;
 
-        public IReadOnlyDictionary<Type, RpcType> InitialTypeMap { get; init; } = DefaultTypeMap;
-
-        public IReadOnlyCollection<RpcTypeDeclaration> InitialTypeDeclarations { get; init; } = DefaultTypeDeclarations;
+        public IReadOnlyDictionary<Type, RpcPrimitiveType> PrimitiveTypeMap { get; init; } = DefaultPrimitiveTypeMap;
 
         public Type ContextType { get; init; } = typeof(RpcContext);
 

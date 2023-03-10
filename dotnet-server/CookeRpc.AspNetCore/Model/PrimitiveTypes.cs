@@ -18,10 +18,9 @@ namespace CookeRpc.AspNetCore.Model
         public static RpcPrimitiveType Map { get; } = new RpcPrimitiveType("map", typeof(Dictionary<,>));
         public static RpcPrimitiveType Array { get; } = new RpcPrimitiveType("array", typeof(List<>));
         public static RpcPrimitiveType Tuple { get; } = new RpcPrimitiveType("tuple", typeof(ITuple));
+        public static RpcPrimitiveType Optional { get; } = new RpcPrimitiveType("optional", typeof(Optional<>));
 
-        public static RpcPrimitiveType Optional { get; } =
-            new RpcPrimitiveType("optional", typeof(Optional<>));
-
-        public static IReadOnlyCollection<RpcPrimitiveType> All { get; } = ReflectionHelper.GetAllStaticProperties<RpcPrimitiveType>(typeof(PrimitiveTypes)).ToArray();
+        public static IReadOnlyCollection<RpcPrimitiveType> All { get; } = ReflectionHelper
+            .GetAllStaticProperties<RpcPrimitiveType>(typeof(PrimitiveTypes)).ToArray();
     }
 }

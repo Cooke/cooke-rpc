@@ -82,12 +82,12 @@ namespace CookeRpc.AspNetCore
             static object GetIntrospectionType(RpcType type) =>
                 type switch
                 {
+                    RpcRefType refType => refType.ReferencedType.Name,
                     RpcPrimitiveType primType => new
                     {
                         kind = "primitive",
                         primType.Name
                     },
-                    RpcRefType refType => refType.ReferencedType.Name,
                     RpcUnionType unionType => new
                     {
                         kind = "union",
@@ -108,11 +108,12 @@ namespace CookeRpc.AspNetCore
                             value = m.Value
                         })
                     },
-                    RpcObject obj => new
+                    RpcObjectType obj => new
                     {
                         kind = "object",
                         properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
-                        extends = obj.Extends.Count == 0 ? null : obj.Extends.Select(GetIntrospectionType)
+                        extends = obj.Extends.Count == 0 ? null : obj.Extends.Select(GetIntrospectionType),
+                        @abstract = obj.IsAbstract
                     },
                     _ => throw new ArgumentOutOfRangeException(nameof(type))
                 };
