@@ -57,12 +57,8 @@ namespace CookeRpc.AspNetCore
         {
             await context.Response.WriteAsJsonAsync(new
             {
-                typeDeclarations = _model.TypeDeclarations
-                    .Select(dec => new
-                    {
-                        dec.Name,
-                        Type = GetIntrospectionType(dec.Type)
-                    }),
+                types = _model.Types
+                    .Select(GetTypeDeclaration),
                 services = _model.Services.Select(x => new
                 {
                     x.Name,
@@ -79,28 +75,35 @@ namespace CookeRpc.AspNetCore
                 })
             }, _introspectionSerializerOptions);
 
-            static object GetIntrospectionType(RpcType type) =>
+            static object GetIntrospectionType(IRpcType type) =>
                 type switch
                 {
-                    RpcRefType refType => refType.ReferencedType.Name,
-                    RpcPrimitiveType primType => new
-                    {
-                        kind = "primitive",
-                        primType.Name
-                    },
-                    RpcUnionType unionType => new
+                    INamedRpcType refType => refType.Name,
+                    UnionRpcType unionType => new
                     {
                         kind = "union",
                         types = unionType.Types.Select(GetIntrospectionType)
                     },
-                    RpcGenericType genericType => new
+                    GenericRpcType genericType => new
                     {
                         kind = "generic",
                         name = genericType.TypeDefinition.Name,
                         typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
                     },
-                    RpcEnum e => new
+                    _ => throw new ArgumentOutOfRangeException(nameof(type))
+                };
+
+            static object GetTypeDeclaration(INamedRpcType type) =>
+                type switch
+                {
+                    PrimitiveRpcType primType => new
                     {
+                        primType.Name,
+                        kind = "primitive",
+                    },
+                    EnumRpcType e => new
+                    {
+                        name = e.Name,
                         kind = "enum",
                         members = e.Members.Select(m => new
                         {
@@ -108,8 +111,9 @@ namespace CookeRpc.AspNetCore
                             value = m.Value
                         })
                     },
-                    RpcObjectType obj => new
+                    ObjectRpcType obj => new
                     {
+                        name = obj.Name,
                         kind = "object",
                         properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
                         extends = obj.Extends.Count == 0 ? null : obj.Extends.Select(GetIntrospectionType),

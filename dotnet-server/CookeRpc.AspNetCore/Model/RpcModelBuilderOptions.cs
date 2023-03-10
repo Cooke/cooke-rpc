@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
@@ -13,8 +14,8 @@ namespace CookeRpc.AspNetCore.Model
 {
     public class RpcModelBuilderOptions
     {
-        public static readonly ImmutableDictionary<Type, RpcPrimitiveType> DefaultPrimitiveTypeMap =
-            new Dictionary<Type, RpcPrimitiveType>
+        public static readonly ImmutableDictionary<Type, PrimitiveRpcType> DefaultPrimitiveTypeMap =
+            new Dictionary<Type, PrimitiveRpcType>
             {
                 { typeof(string), PrimitiveTypes.String },
                 { typeof(int), PrimitiveTypes.Number },
@@ -32,6 +33,10 @@ namespace CookeRpc.AspNetCore.Model
                 { typeof(decimal), PrimitiveTypes.Number },
                 { typeof(void), PrimitiveTypes.Void },
                 { typeof(object), PrimitiveTypes.Unknown },
+                { typeof(IEnumerable<>), PrimitiveTypes.Array },
+                { typeof(Optional<>), PrimitiveTypes.Optional },
+                { typeof(ITuple), PrimitiveTypes.Tuple },
+                { typeof(Dictionary<,>), PrimitiveTypes.Map },
             }.ToImmutableDictionary();
 
         public Func<Type, bool> InterfaceFilter { get; init; } =
@@ -70,7 +75,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public Func<Type, string> ServiceNameFormatter { get; init; } = type => type.Name;
 
-        public IReadOnlyDictionary<Type, RpcPrimitiveType> PrimitiveTypeMap { get; init; } = DefaultPrimitiveTypeMap;
+        public IReadOnlyDictionary<Type, PrimitiveRpcType> PrimitiveTypeMap { get; init; } = DefaultPrimitiveTypeMap;
 
         public Type ContextType { get; init; } = typeof(RpcContext);
 

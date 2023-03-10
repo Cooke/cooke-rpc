@@ -32,7 +32,7 @@ namespace CookeRpc.AspNetCore
             return model.AddRpcServicesByAttribute<RpcServiceAttribute>();
         }
 
-        public static RpcType AddType<T>(this RpcModelBuilder model)
+        public static IRpcType AddType<T>(this RpcModelBuilder model)
         {
             return model.MapType(typeof(T));
         }

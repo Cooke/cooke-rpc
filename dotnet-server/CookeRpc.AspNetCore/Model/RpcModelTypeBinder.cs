@@ -11,15 +11,15 @@ namespace CookeRpc.AspNetCore.Model
     public class RpcModelTypeBinder : ITypeBinder
     {
         private readonly RpcModel _rpcModel;
-        private readonly Dictionary<string, RpcTypeDeclaration> _typesByName;
-        private readonly Dictionary<Type, RpcTypeDeclaration> _typesByClrType;
+        private readonly Dictionary<string, INamedRpcType> _typesByName;
+        private readonly Dictionary<Type, INamedRpcType> _typesByClrType;
 
         public RpcModelTypeBinder(RpcModel rpcModel)
         {
             _rpcModel = rpcModel;
-            _typesByName = rpcModel.TypeDeclarations.ToDictionary(x => x.Name, x => x);
-            _typesByClrType = rpcModel.TypeDeclarations.Where(IsObjectType).ToDictionary(x => x.Type.ClrType, x => x);
-            bool IsObjectType(RpcTypeDeclaration x) => x.Type is RpcObjectType;
+            _typesByName = rpcModel.Types.ToDictionary(x => x.Name, x => x);
+            _typesByClrType = rpcModel.Types.Where(IsObjectType).ToDictionary(x => x.ClrType, x => x);
+            bool IsObjectType(INamedRpcType x) => x is ObjectRpcType;
         }
 
         public string GetName(Type type)
@@ -37,8 +37,8 @@ namespace CookeRpc.AspNetCore.Model
 
         public bool ShouldResolveType(Type targetType)
         {
-            return _rpcModel.TypeDeclarations.Select(x => x.Type).Count(x => x.ClrType.IsAssignableTo(targetType)) > 1 ||
-                   _rpcModel.TypeDeclarations.Select(x => x.Type).Count(x => x.ClrType.IsAssignableFrom(targetType)) > 1;
+            return _rpcModel.Types.Count(x => x.ClrType.IsAssignableTo(targetType)) > 1 ||
+                   _rpcModel.Types.Count(x => x.ClrType.IsAssignableFrom(targetType)) > 1;
         }
 
         private JsonRpcTypeRef Parse(string typeName)
@@ -52,20 +52,9 @@ namespace CookeRpc.AspNetCore.Model
 
         private Type Resolve(JsonRpcTypeRef refDataType, Type targetType)
         {
-            var declaration = _typesByName.GetValueOrDefault(refDataType.Name) ??
-                              throw CreateResolveException();
-            var clrDataType = declaration.Type switch
-            {
-                RpcPrimitiveType customType => customType.ClrType,
-                RpcObjectType objectType => objectType.ClrType,
-                RpcGenericType genericType => genericType switch
-                {
-                    var x when x.TypeDefinition == PrimitiveTypes.Array => typeof(List<>),
-                    var x when x.TypeDefinition == PrimitiveTypes.Map => typeof(Dictionary<,>),
-                    _ => throw CreateResolveException()
-                },
-                _ => throw CreateResolveException()
-            };
+            var rpcType = _typesByName.GetValueOrDefault(refDataType.Name) ??
+                          throw CreateResolveException();
+            var clrDataType = rpcType.ClrType;
 
             // Generic
             if (clrDataType.IsGenericTypeDefinition || targetType.IsGenericTypeDefinition) {
@@ -111,13 +100,13 @@ namespace CookeRpc.AspNetCore.Model
             return new JsonRpcTypeRef(name, args);
         }
 
-        private string SerializeType(RpcType rpcType)
+        private string SerializeType(IRpcType rpcType)
         {
             switch (rpcType) {
-                case RpcPrimitiveType primitiveType:
+                case PrimitiveRpcType primitiveType:
                     return primitiveType.Name ?? throw new InvalidOperationException();
 
-                case RpcGenericType genericType:
+                case GenericRpcType genericType:
                     if (!genericType.TypeArguments.Any()) {
                         return genericType.TypeDefinition.Name ?? throw new InvalidOperationException();
                     }

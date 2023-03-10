@@ -4,7 +4,7 @@ namespace CookeRpc.AspNetCore.Model
 {
     public class RpcParameterModel
     {
-        public RpcParameterModel(string name, RpcType type, bool isOptional)
+        public RpcParameterModel(string name, IRpcType type, bool isOptional)
         {
             Name = name;
             Type = type;
@@ -13,7 +13,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public string Name { get; init; }
 
-        public RpcType Type { get; init; }
+        public IRpcType Type { get; init; }
 
         public bool IsOptional { get; init; }
     }

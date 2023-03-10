@@ -12,7 +12,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public RpcProcedureModel(string name,
             Lazy<RpcDelegate> lazyDelegate,
-            RpcType returnType,
+            IRpcType returnType,
             IReadOnlyCollection<RpcParameterModel> parameters,
             IReadOnlyCollection<object> attributes)
         {
@@ -27,7 +27,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public RpcDelegate Delegate => _lazyDelegate.Value;
 
-        public RpcType ReturnType { get; }
+        public IRpcType ReturnType { get; }
 
         public IReadOnlyCollection<RpcParameterModel> Parameters { get; init; }
         
