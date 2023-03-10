@@ -1,8 +1,10 @@
+using CookeRpc.AspNetCore.Model.TypeDefinitions;
+
 namespace CookeRpc.AspNetCore.Model
 {
     public class RpcParameterModel
     {
-        public RpcParameterModel(string name, Types.RpcType type, bool isOptional)
+        public RpcParameterModel(string name, RpcType type, bool isOptional)
         {
             Name = name;
             Type = type;
@@ -11,7 +13,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public string Name { get; init; }
 
-        public Types.RpcType Type { get; init; }
+        public RpcType Type { get; init; }
 
         public bool IsOptional { get; init; }
     }

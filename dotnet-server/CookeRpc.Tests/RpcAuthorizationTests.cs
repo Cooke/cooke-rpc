@@ -25,7 +25,7 @@ namespace CookeRpc.Tests
         {
             _testOutputHelper = testOutputHelper;
 
-            RpcModel model = new(new RpcModelOptions());
+            RpcModelBuilder model = new(new RpcModelBuilderOptions());
             model.AddService(typeof(TestController));
 
             _host = Host.CreateDefaultBuilder().ConfigureWebHostDefaults(webBuilder =>
@@ -45,7 +45,7 @@ namespace CookeRpc.Tests
 
                         return next();
                     });
-                    app.UseRpc(model);
+                    app.UseRpc(model.Build());
                 });
                 webBuilder.UseTestServer();
             }).Start();

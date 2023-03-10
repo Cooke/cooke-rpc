@@ -4,7 +4,7 @@ namespace CookeRpc.AspNetCore.Model.TypeDefinitions
 {
     public class RpcPropertyDefinition
     {
-        public RpcPropertyDefinition(string name, Types.RpcType type, MemberInfo clrMemberInfo)
+        public RpcPropertyDefinition(string name, RpcType type, MemberInfo clrMemberInfo)
         {
             Name = name;
             Type = type;
@@ -15,7 +15,7 @@ namespace CookeRpc.AspNetCore.Model.TypeDefinitions
 
         public bool IsOptional { get; init; }
 
-        public Types.RpcType Type { get; }
+        public RpcType Type { get; }
 
         // May be null if no corresponding clr member info exists
         public MemberInfo ClrMemberInfo { get; }

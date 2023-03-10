@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CookeRpc.AspNetCore.Core;
+using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
 
 namespace CookeRpc.AspNetCore.Model
@@ -26,7 +27,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public RpcDelegate Delegate => _lazyDelegate.Value;
 
-        public Types.RpcType ReturnType { get; }
+        public RpcType ReturnType { get; }
 
         public IReadOnlyCollection<RpcParameterModel> Parameters { get; init; }
         

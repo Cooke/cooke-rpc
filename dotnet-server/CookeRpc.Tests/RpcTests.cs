@@ -22,13 +22,13 @@ namespace CookeRpc.Tests
         {
             _testOutputHelper = testOutputHelper;
 
-            RpcModel model = new(new RpcModelOptions());
-            model.AddService(typeof(TestController));
+            RpcModelBuilder modelBuilder = new(new RpcModelBuilderOptions());
+            modelBuilder.AddService(typeof(TestController));
 
             _host = Host.CreateDefaultBuilder().ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.ConfigureServices(services => services.AddRpc());
-                webBuilder.Configure(app => { app.UseRpc(model); });
+                webBuilder.Configure(app => { app.UseRpc(modelBuilder.Build()); });
                 webBuilder.UseTestServer();
             }).Start();
         }
@@ -38,23 +38,40 @@ namespace CookeRpc.Tests
         {
             var client = _host.GetTestClient();
             var response = await client.PostAsJsonAsync("/rpc",
-                new object[] {new {Id = "123", Service = "TestController", Proc = "Echo"}, "Hello!"});
+                new object[]
+                {
+                    new
+                    {
+                        Id = "123",
+                        Service = "TestController",
+                        Proc = "Echo"
+                    },
+                    "Hello!"
+                });
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},\"Hello!\"]", await response.Content.ReadAsStringAsync());
         }
-        
+
         [Fact]
         public async Task SerializeEnumResult()
         {
             var client = _host.GetTestClient();
             var response = await client.PostAsJsonAsync("/rpc",
-                new object[] {new {Id = "123", Service = "TestController", Proc = "Ask"}});
+                new object[]
+                {
+                    new
+                    {
+                        Id = "123",
+                        Service = "TestController",
+                        Proc = "Ask"
+                    }
+                });
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},\"No\"]", await response.Content.ReadAsStringAsync());
         }
-        
+
         [Fact]
         public async Task InvokeAdvanced()
         {
@@ -62,7 +79,7 @@ namespace CookeRpc.Tests
             var response = await client.PostAsync("/rpc",
                 new StringContent(
                     @"[{""id"":""123"",""service"":""TestController"",""proc"":""EchoFruit""},{""$type"":""Banana""}]"));
-            
+
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},{\"$type\":\"Banana\"}]", await response.Content.ReadAsStringAsync());
@@ -85,7 +102,7 @@ namespace CookeRpc.Tests
             public TestModel Fetch() => new();
 
             public Fruit EchoFruit(Fruit fruit) => fruit;
-            
+
             public YesOrNo Ask() => YesOrNo.No;
         }
 

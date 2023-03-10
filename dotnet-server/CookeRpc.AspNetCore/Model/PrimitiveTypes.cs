@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
@@ -8,17 +9,19 @@ namespace CookeRpc.AspNetCore.Model
 {
     public class PrimitiveTypes
     {
-        public static RpcRefType Null { get; } = new(new RpcPrimitiveTypeDefinition("null", typeof(object)));
-        public static RpcRefType Unknown { get; } = new(new RpcPrimitiveTypeDefinition("unknown", typeof(object)));
-        public static RpcRefType String { get; } = new(new RpcPrimitiveTypeDefinition("string", typeof(string)));
-        public static RpcRefType Number { get; } = new(new RpcPrimitiveTypeDefinition("number", typeof(double)));
-        public static RpcRefType Boolean { get; } = new(new RpcPrimitiveTypeDefinition("boolean", typeof(bool)));
-        public static RpcRefType Void { get; } = new(new RpcPrimitiveTypeDefinition("void", typeof(void)));
-        public static RpcRefType Map { get; } = new(new RpcPrimitiveTypeDefinition("map", typeof(Dictionary<,>)));
-        public static RpcRefType Array { get; } = new(new RpcPrimitiveTypeDefinition("array", typeof(List<>)));
-        public static RpcRefType Tuple { get; } = new(new RpcPrimitiveTypeDefinition("tuple", typeof(ITuple)));
+        public static RpcPrimitiveType Null { get; } = new RpcPrimitiveType("null", typeof(object));
+        public static RpcPrimitiveType Unknown { get; } = new RpcPrimitiveType("unknown", typeof(object));
+        public static RpcPrimitiveType String { get; } = new RpcPrimitiveType("string", typeof(string));
+        public static RpcPrimitiveType Number { get; } = new RpcPrimitiveType("number", typeof(double));
+        public static RpcPrimitiveType Boolean { get; } = new RpcPrimitiveType("boolean", typeof(bool));
+        public static RpcPrimitiveType Void { get; } = new RpcPrimitiveType("void", typeof(void));
+        public static RpcPrimitiveType Map { get; } = new RpcPrimitiveType("map", typeof(Dictionary<,>));
+        public static RpcPrimitiveType Array { get; } = new RpcPrimitiveType("array", typeof(List<>));
+        public static RpcPrimitiveType Tuple { get; } = new RpcPrimitiveType("tuple", typeof(ITuple));
 
-        public static RpcRefType Optional { get; } =
-            new(new RpcPrimitiveTypeDefinition("optional", typeof(Optional<>)));
+        public static RpcPrimitiveType Optional { get; } =
+            new RpcPrimitiveType("optional", typeof(Optional<>));
+
+        public static IReadOnlyCollection<RpcPrimitiveType> All { get; } = ReflectionHelper.GetAllStaticProperties<RpcPrimitiveType>(typeof(PrimitiveTypes)).ToArray();
     }
 }

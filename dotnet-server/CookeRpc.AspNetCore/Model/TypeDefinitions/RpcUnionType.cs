@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using CookeRpc.AspNetCore.Model.TypeDefinitions;
 
 namespace CookeRpc.AspNetCore.Model.Types
 {
@@ -6,11 +8,9 @@ namespace CookeRpc.AspNetCore.Model.Types
     {
         public IReadOnlyCollection<RpcType> Types { get; }
 
-        public RpcUnionType(IReadOnlyCollection<RpcType> types)
+        public RpcUnionType(IReadOnlyCollection<RpcType> types, Type clrType) : base(clrType)
         {
             Types = types;
         }
-
-        public override string? Name { get; } = null;
     }
 }

@@ -17,13 +17,14 @@ namespace CookeRpc.Tests
         {
             _testOutputHelper = testOutputHelper;
 
-            _model = new RpcModel(new RpcModelOptions
+            var builder = new RpcModelBuilder(new RpcModelBuilderOptions
             {
                 TypeFilter = type => type.GetCustomAttribute<IgnoreAttribute>() == null
             });
-            _model.MapType(typeof(Fruit));
-            _model.MapType(typeof(TestModel[]));
-            _model.MapType(typeof(Dictionary<string, string>));
+            builder.AddType(typeof(Fruit));
+            builder.AddType(typeof(TestModel[]));
+            builder.AddType(typeof(Dictionary<string, string>));
+            _model = builder.Build();
         }
 
         [Fact]

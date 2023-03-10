@@ -57,43 +57,12 @@ namespace CookeRpc.AspNetCore
         {
             await context.Response.WriteAsJsonAsync(new
             {
-                types = _model.TypesDefinitions.Select(x => (object?)(x switch
-                {
-                    RpcEnumDefinition e => new
+                typeDeclarations = _model.TypeDeclarations
+                    .Select(dec => new
                     {
-                        kind = "enum",
-                        x.Name,
-                        members = e.Members.Select(m => new
-                        {
-                            name = m.Name,
-                            value = m.Value
-                        })
-                    },
-                    RpcUnionDefinition union => new
-                    {
-                        kind = "union",
-                        x.Name,
-                        types = union.Types.Select(GetIntrospectionType)
-                    },
-                    RpcInterfaceDefinition inter => new
-                    {
-                        kind = "interface",
-                        x.Name,
-                        properties = inter.Properties.Count == 0
-                            ? null
-                            : inter.Properties.Select(GetIntrospectionProperty),
-                        extends = inter.Extends.Count == 0 ? null : inter.Extends.Select(GetIntrospectionType)
-                    },
-                    RpcObjectDefinition obj => new
-                    {
-                        kind = "object",
-                        x.Name,
-                        properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
-                        implements = obj.Implements.Count == 0 ? null : obj.Implements.Select(GetIntrospectionType)
-                    },
-                    RpcPrimitiveTypeDefinition => null,
-                    _ => throw new ArgumentOutOfRangeException(nameof(x))
-                })).Where(x => x is not null),
+                        dec.Name,
+                        Type = GetIntrospectionType(dec.Type)
+                    }),
                 services = _model.Services.Select(x => new
                 {
                     x.Name,
@@ -110,9 +79,15 @@ namespace CookeRpc.AspNetCore
                 })
             }, _introspectionSerializerOptions);
 
-            static object GetIntrospectionType(RpcType t) =>
-                t switch
+            static object GetIntrospectionType(RpcType type) =>
+                type switch
                 {
+                    RpcPrimitiveType primType => new
+                    {
+                        kind = "primitive",
+                        primType.Name
+                    },
+                    RpcRefType refType => refType.ReferencedType.Name,
                     RpcUnionType unionType => new
                     {
                         kind = "union",
@@ -121,11 +96,25 @@ namespace CookeRpc.AspNetCore
                     RpcGenericType genericType => new
                     {
                         kind = "generic",
-                        name = genericType.Name,
+                        name = genericType.TypeDefinition.Name,
                         typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
                     },
-                    RpcRefType { Name: { } } refType => refType.Name,
-                    _ => throw new NotSupportedException()
+                    RpcEnum e => new
+                    {
+                        kind = "enum",
+                        members = e.Members.Select(m => new
+                        {
+                            name = m.Name,
+                            value = m.Value
+                        })
+                    },
+                    RpcObject obj => new
+                    {
+                        kind = "object",
+                        properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
+                        extends = obj.Extends.Count == 0 ? null : obj.Extends.Select(GetIntrospectionType)
+                    },
+                    _ => throw new ArgumentOutOfRangeException(nameof(type))
                 };
 
             static object GetIntrospectionProperty(RpcPropertyDefinition p) =>

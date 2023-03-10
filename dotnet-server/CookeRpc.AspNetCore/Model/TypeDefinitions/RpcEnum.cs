@@ -3,12 +3,11 @@ using System.Collections.Generic;
 
 namespace CookeRpc.AspNetCore.Model.TypeDefinitions
 {
-    public class RpcEnumDefinition : RpcTypeDefinition
+    public class RpcEnum : RpcType
     {
         public IReadOnlyCollection<RpcEnumMember> Members { get; }
 
-        public RpcEnumDefinition(string name, Type clrType, IReadOnlyCollection<RpcEnumMember> members) : base(
-            name, clrType)
+        public RpcEnum(Type clrType, IReadOnlyCollection<RpcEnumMember> members) : base(clrType)
         {
             Members = members;
         }

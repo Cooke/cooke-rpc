@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CookeRpc.AspNetCore;
 using CookeRpc.AspNetCore.Model;
+using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
 using Xunit;
 
@@ -13,8 +14,9 @@ namespace CookeRpc.Tests
 
         public RpcModelTests()
         {
-            _model = new(new RpcModelOptions());
-            _model.AddService(typeof(TestController));
+            var builder = new RpcModelBuilder(new RpcModelBuilderOptions());
+            builder.AddService(typeof(TestController));
+            _model = builder.Build();
         }
 
         [Fact]
@@ -30,7 +32,7 @@ namespace CookeRpc.Tests
         {
             var serviceModel = _model.Services.First();
             var proc = serviceModel.Procedures.Single(x => x.Name == "GetString");
-            Assert.Equal("string", Assert.IsType<RpcRefType>(proc.ReturnType).Name);
+            Assert.Equal("string", Assert.IsType<RpcPrimitiveType>(proc.ReturnType).Name);
         }
 
         [Fact]
@@ -46,7 +48,7 @@ namespace CookeRpc.Tests
         {
             var serviceModel = _model.Services.First();
             var proc = serviceModel.Procedures.Single(x => x.Name == "GetStringTask");
-            Assert.Equal("string", Assert.IsType<RpcRefType>(proc.ReturnType).Name);
+            Assert.Equal("string", Assert.IsType<RpcPrimitiveType>(proc.ReturnType).Name);
         }
 
         [Fact]
@@ -56,20 +58,20 @@ namespace CookeRpc.Tests
             var nullableParameter = serviceModel.Procedures.Single(x => x.Name == "DoStringOrNull").Parameters.First();
             AssertNullable(nullableParameter.Type);
         }
-        
+
         [Fact]
         public void Shall_Model_Tuples()
         {
             var serviceModel = _model.Services.First();
             var returnType = serviceModel.Procedures.Single(x => x.Name == "GetPos").ReturnType;
             var genericType = Assert.IsType<RpcGenericType>(returnType);
-            Assert.Equal(genericType.InnerType, PrimitiveTypes.Tuple);
-            Assert.IsType<RpcRefType>(genericType.TypeArguments.First());
+            Assert.Equal(genericType.TypeDefinition, PrimitiveTypes.Tuple);
+            Assert.IsType<RpcPrimitiveType>(genericType.TypeArguments.First());
         }
 
         private static void AssertNullable(RpcType type)
         {
-            Assert.Contains(Assert.IsType<RpcUnionType>(type).Types, t => t.Name == "null");
+            Assert.Contains(Assert.IsType<RpcUnionType>(type).Types, t => t is RpcPrimitiveType {Name: "null"});
         }
 
         [RpcService]
