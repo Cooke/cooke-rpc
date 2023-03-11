@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -251,13 +252,19 @@ namespace CookeRpc.AspNetCore.Model
             RpcPropertyDefinition CreatePropertyModel(Type memberType, MemberInfo memberInfo)
             {
                 var propTypeRef = MapType(memberType);
+                var scarType = _options.IsMemberNullable(memberInfo)
+                    ? new UnionRpcType(new[]
+                    {
+                        PrimitiveTypes.Null, propTypeRef
+                    }, memberType)
+                    : propTypeRef;
+
+                var dataTypeAttribute = memberInfo.GetCustomAttribute<DataTypeAttribute>();
+                var nextType = dataTypeAttribute != null
+                    ? new RestrictedType(scarType, dataTypeAttribute.DataType != DataType.Custom ? dataTypeAttribute.DataType : dataTypeAttribute.CustomDataType!)
+                    : scarType;
                 var propertyDefinition = new RpcPropertyDefinition(_options.MemberNameFormatter(memberInfo),
-                    _options.IsMemberNullable(memberInfo)
-                        ? new UnionRpcType(new[]
-                        {
-                            PrimitiveTypes.Null, propTypeRef
-                        }, memberType)
-                        : propTypeRef, memberInfo)
+                    scarType, memberInfo)
                 {
                     IsOptional = _options.IsMemberOptional(memberInfo),
                 };
