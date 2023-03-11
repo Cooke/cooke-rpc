@@ -46,8 +46,6 @@ if (!fs.existsSync(outputDir)) {
   .end();
 
 function generateRpcTs(meta) {
-  const defaultUnion = true;
-
   const stream = fs.createWriteStream(outputFilePath, {
     flags: "w",
   });
@@ -64,46 +62,61 @@ function generateRpcTs(meta) {
         discriminatedTypes.add(memberType.name);
       }
     } else if (type.kind === "object") {
-      if (type.implements && type.implements.length > 0) {
+      if (type.extends && type.extends.length > 0) {
         discriminatedTypes.add(type.name);
       }
     }
   }
 
-  var generatedUnionTypes = new Set();
+  var abstractUnions = new Set();
   for (const type of meta.types) {
-    if (type.kind === "interface") {
-      generatedUnionTypes.add(type.name);
+    if (
+      type.kind === "object" &&
+      type.abstract &&
+      (!type.properties || type.properties.length === 0)
+    ) {
+      abstractUnions.add(type.name);
     }
   }
 
-  function formatType(type) {
+  var abstractTypes = new Set();
+  for (const type of meta.types) {
+    if (type.kind === "object" && type.abstract) {
+      abstractTypes.add(type.name);
+    }
+  }
+
+  function formatTypeUsage(type) {
     if (typeof type === "string") {
-      return generatedUnionTypes.has(type) && !defaultUnion
-        ? type + "Union"
-        : type;
+      return type;
     }
 
     switch (type.kind) {
       case "union":
-        return type.types.map(formatType).join(" | ");
+        if (type.types.length === 0) {
+          return "never";
+        }
+
+        return type.types.map(formatTypeUsage).join(" | ");
 
       case "generic":
         switch (type.name) {
           case "array":
-            return `Array<${type.typeArguments.map(formatType).join(",")}>`;
+            return `Array<${type.typeArguments
+              .map(formatTypeUsage)
+              .join(",")}>`;
 
           case "tuple":
-            return `[${type.typeArguments.map(formatType).join(",")}]`;
+            return `[${type.typeArguments.map(formatTypeUsage).join(",")}]`;
 
           case "optional":
             return `${type.typeArguments
-              .map(formatType)
+              .map(formatTypeUsage)
               .join(",")} | undefined`;
 
           case "map": {
-            const keyType = formatType(type.typeArguments[0]);
-            const valueType = formatType(type.typeArguments[1]);
+            const keyType = formatTypeUsage(type.typeArguments[0]);
+            const valueType = formatTypeUsage(type.typeArguments[1]);
             if (keyType === "string" || keyType === "number") {
               return `{[key: ${keyType}]: ${valueType}}`;
             } else {
@@ -113,7 +126,7 @@ function generateRpcTs(meta) {
 
           default:
             return `${type.name}<${type.typeArguments
-              .map(formatType)
+              .map(formatTypeUsage)
               .join(",")}>`;
         }
 
@@ -136,78 +149,66 @@ function generateRpcTs(meta) {
               p.optional
                 ? "?"
                 : ""
-            }: ${formatType(p.type)};`
+            }: ${formatTypeUsage(p.type)};`
         )
         .join("\n")
     );
   }
 
-  for (const type of meta.types) {
-    if (type.kind === "union") {
-      stream.write(`export type ${type.name} = `);
-      if (type.types.length > 0) {
-        stream.write(type.types.map(formatType).join(" | "));
-      } else {
-        stream.write("never");
-      }
-      stream.write(";\n\n");
-    } else if (type.kind === "object") {
-      stream.write(`export interface ${type.name} `);
+  function writeObject(stream, type, name) {
+    stream.write(`export interface ${name} `);
 
-      if ((type.implements && type.implements.length > 0) || type.base) {
-        stream.write("extends ");
-        stream.write(
-          (type.implements ?? [])
-            .map((i) => i + (defaultUnion ? "Interface" : ""))
-            .join(", ")
-        );
-        stream.write(" ");
-      }
+    var actualExtends =
+      type.extends?.filter((x) => !abstractUnions.has(x)) ?? [];
+    if (actualExtends.length > 0) {
+      stream.write("extends ");
+      stream.write(
+        actualExtends
+          .map((x) => (abstractTypes.has(x) ? x + "$Base" : x))
+          .join(", ")
+      );
+      stream.write(" ");
+    }
 
-      stream.write("{\n");
+    stream.write("{\n");
+    if (!type.abstract) {
       if (discriminatedTypes.has(type.name)) {
         stream.write(`  $type: "${type.name}";\n`);
       } else {
         stream.write(`  $type?: "${type.name}";\n`);
       }
+    }
 
-      writeProperties(stream, type.properties);
+    writeProperties(stream, type.properties);
 
-      stream.write("\n}");
+    stream.write("\n}");
+  }
+
+  for (const type of meta.types) {
+    if (type.kind === "primitive") {
+    } else if (type.kind === "union") {
+      stream.write(`export type ${type.name} = `);
+      stream.write(formatTypeUsage(type));
       stream.write(";\n\n");
-    } else if (type.kind === "interface") {
-      stream.write(
-        `export interface ${type.name}${defaultUnion ? "Interface" : ""} `
-      );
+    } else if (type.kind === "object") {
+      if (type.abstract) {
+        if (!abstractUnions.has(type.name)) {
+          writeObject(stream, type, type.name + "$Base");
+          stream.write("\n\n");
+        }
 
-      if (type.extends && type.extends.length > 0) {
-        stream.write("extends ");
-        stream.write(
-          type.extends
-            .map((i) => i + (defaultUnion ? "Interface" : ""))
-            .join(", ")
+        var extenders = meta.types.filter(
+          (x) => x.extends && x.extends.includes(type.name)
         );
-        stream.write(" ");
+        if (extenders.length > 0) {
+          stream.write(`export type ${type.name} = `);
+          stream.write(extenders.map((x) => x.name).join(" | "));
+          stream.write(";\n\n");
+        }
+      } else {
+        writeObject(stream, type, type.name);
+        stream.write("\n\n");
       }
-
-      stream.write("{\n");
-      writeProperties(stream, type.properties);
-      stream.write("\n}");
-      stream.write(";\n\n");
-
-      stream.write(
-        `export type ${type.name}${!defaultUnion ? "Union" : ""} = `
-      );
-      const implementers = meta.types
-        .filter(
-          (x) =>
-            x.implements?.includes(type.name) || x.extends?.includes(type.name)
-        )
-        .map((x) => x.name);
-      stream.write(
-        implementers.length > 0 ? implementers.join(" | ") : "never"
-      );
-      stream.write(";\n\n");
     } else if (type.kind === "enum") {
       stream.write(`export enum ${type.name} {\n`);
       stream.write(
@@ -231,14 +232,14 @@ function generateRpcTs(meta) {
 
     for (const proc of service.procedures) {
       const argsType = `[${proc.parameters
-        .map((p) => `${p.name}: ${formatType(p.type)}`)
+        .map((p) => `${p.name}: ${formatTypeUsage(p.type)}`)
         .join(", ")}]`;
       stream.write(
         `  ${toCamelCase(proc.name)}: createRpcInvoker<'${service.name}', '${
           proc.name
-        }', ${argsType}, ${formatType(proc.returnType)}>('${service.name}', '${
-          proc.name
-        }'),\n`
+        }', ${argsType}, ${formatTypeUsage(proc.returnType)}>('${
+          service.name
+        }', '${proc.name}'),\n`
       );
     }
 

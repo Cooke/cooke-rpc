@@ -1,7 +1,10 @@
 using System;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using CookeRpc.AspNetCore;
 using CookeRpc.AspNetCore.Model;
@@ -34,20 +37,19 @@ namespace CookeRpc.Tests
         }
 
         [Fact]
-        public async Task Invoke()
+        public async Task Invoke_Shall_Work()
         {
             var client = _host.GetTestClient();
-            var response = await client.PostAsJsonAsync("/rpc",
-                new object[]
+            var response = await client.PostAsJsonAsync("/rpc", new object[]
+            {
+                new
                 {
-                    new
-                    {
-                        Id = "123",
-                        Service = "TestController",
-                        Proc = "Echo"
-                    },
-                    "Hello!"
-                });
+                    Id = "123",
+                    Service = "TestController",
+                    Proc = "Echo"
+                },
+                "Hello!"
+            });
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},\"Hello!\"]", await response.Content.ReadAsStringAsync());
@@ -57,16 +59,15 @@ namespace CookeRpc.Tests
         public async Task SerializeEnumResult()
         {
             var client = _host.GetTestClient();
-            var response = await client.PostAsJsonAsync("/rpc",
-                new object[]
+            var response = await client.PostAsJsonAsync("/rpc", new object[]
+            {
+                new
                 {
-                    new
-                    {
-                        Id = "123",
-                        Service = "TestController",
-                        Proc = "Ask"
-                    }
-                });
+                    Id = "123",
+                    Service = "TestController",
+                    Proc = "Ask"
+                }
+            });
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},\"No\"]", await response.Content.ReadAsStringAsync());
@@ -95,6 +96,35 @@ namespace CookeRpc.Tests
             _testOutputHelper.WriteLine(metadata.RootElement.ToString());
         }
 
+        [Fact]
+        public async Task Invocation_With_Argument_Of_Incorrect_Restricted_Type_Shall_Return_ParseError()
+        {
+            var client = _host.GetTestClient();
+            var response = await Invoke(client, "TestController", "SetEmail", "invalid_email");
+            response.EnsureSuccessStatusCode();
+
+            Assert.Equal(
+                "[{\"id\":\"123\",\"errorCode\":\"bad_request\",\"errorMessage\":\"Invalid value for parameter\"}]",
+                await response.Content.ReadAsStringAsync());
+        }
+
+        private static async Task<HttpResponseMessage> Invoke(HttpClient client,
+            string service,
+            string proc,
+            params object[] args)
+        {
+            var response = await client.PostAsJsonAsync("/rpc", new object[]
+            {
+                new
+                {
+                    Id = "123",
+                    Service = service,
+                    Proc = proc
+                },
+            }.Concat(args));
+            return response;
+        }
+
         [RpcService]
         public class TestController
         {
@@ -105,6 +135,32 @@ namespace CookeRpc.Tests
             public Fruit EchoFruit(Fruit fruit) => fruit;
 
             public YesOrNo Ask() => YesOrNo.No;
+
+            public void SetEmail(Email email)
+            {
+            }
+        }
+
+        [RpcType(Kind = RpcTypeKind.Primitive)]
+        [JsonConverter(typeof(EmailConverter))]
+        public record Email(string Value)
+        {
+            public string Value { get; } = Value.Contains("@") ? Value : throw new ArgumentOutOfRangeException("Value");
+        }
+
+        public class EmailConverter : JsonConverter<RpcTests.Email>
+        {
+            public override RpcTests.Email? Read(ref Utf8JsonReader reader,
+                Type typeToConvert,
+                JsonSerializerOptions options)
+            {
+                return new RpcTests.Email(reader.GetString() ?? throw new JsonException("Email may not be null"));
+            }
+
+            public override void Write(Utf8JsonWriter writer, RpcTests.Email value, JsonSerializerOptions options)
+            {
+                writer.WriteStringValue(value.Value);
+            }
         }
 
         public void Dispose()

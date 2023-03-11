@@ -90,6 +90,12 @@ namespace CookeRpc.AspNetCore
                         name = genericType.TypeDefinition.Name,
                         typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
                     },
+                    RestrictedRpcType restrictedType => new
+                    {
+                        kind = "restricted",
+                        restriction = restrictedType.Restriction,
+                        type = GetIntrospectionType(restrictedType.InnerType)
+                    },
                     _ => throw new ArgumentOutOfRangeException(nameof(type))
                 };
 

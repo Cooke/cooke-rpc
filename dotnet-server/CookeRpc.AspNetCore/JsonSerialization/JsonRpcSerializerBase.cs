@@ -49,7 +49,6 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                     buffer.Slice(argumentStart,
                         argumentReader.BytesConsumed - argumentStart), 
                     type);
-                // var deserialize = JsonSerializer.Deserialize(ref argumentReader, type, _payloadSerializerOptions);
 
                 argumentState = argumentReader.CurrentState;
                 buffer = buffer.Slice(argumentReader.BytesConsumed);

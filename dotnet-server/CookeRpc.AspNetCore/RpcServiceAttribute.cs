@@ -7,17 +7,20 @@ namespace CookeRpc.AspNetCore
     {
     }
 
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Enum, Inherited = false)]
+    [AttributeUsage(
+        AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Enum | AttributeTargets.Parameter |
+        AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.ReturnValue, Inherited = false)]
     public class RpcTypeAttribute : Attribute
     {
         public string? Name { get; init; }
-        
+
         public RpcTypeKind Kind { get; init; }
     }
 
     public enum RpcTypeKind
     {
         Auto,
-        Union
+        Union,
+        Primitive
     }
 }

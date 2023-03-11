@@ -150,8 +150,10 @@ namespace CookeRpc.AspNetCore.Model
 
                 List<RpcParameterModel> rpcParameterModels = new();
                 foreach (var parameterInfo in parameterInfos) {
-                    var paraType =
-                        WrapRestrictions(
+                    var rpcAttr = parameterInfo.GetCustomAttribute<RpcTypeAttribute>();
+                    var paraType = rpcAttr is { Name: { } }
+                        ? new PrimitiveRpcType(rpcAttr.Name, parameterInfo.ParameterType)
+                        : WrapRestrictions(
                             ReflectionHelper.IsNullable(parameterInfo)
                                 ? MakeNullable(MapType(parameterInfo.ParameterType))
                                 : MapType(parameterInfo.ParameterType), parameterInfo);

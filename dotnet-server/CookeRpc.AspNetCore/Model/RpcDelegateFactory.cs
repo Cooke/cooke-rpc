@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -23,13 +24,11 @@ namespace CookeRpc.AspNetCore.Model
             Func<ParameterInfo, ParameterResolver?>? customParameterResolver)
         {
             var controllerType = methodInfo.DeclaringType;
-            if (controllerType == null)
-            {
+            if (controllerType == null) {
                 throw new ArgumentException("Method info is not part of a controller type");
             }
 
-            if (!contextType.IsAssignableTo(typeof(RpcContext)))
-            {
+            if (!contextType.IsAssignableTo(typeof(RpcContext))) {
                 throw new ArgumentException($"Context type must be a subtype of {nameof(RpcContext)}");
             }
 
@@ -41,12 +40,10 @@ namespace CookeRpc.AspNetCore.Model
             var result = CallMethod(methodInfo, spExpression, controllerType, methodArguments);
             Type returnType = methodInfo.ReturnType;
 
-            if (methodInfo.ReturnType == typeof(void))
-            {
+            if (methodInfo.ReturnType == typeof(void)) {
                 result = Expression.Block(result, Expression.Constant(Task.FromResult<object?>(null)));
             }
-            else if (methodInfo.ReturnType == typeof(Task))
-            {
+            else if (methodInfo.ReturnType == typeof(Task)) {
                 returnType = typeof(void);
                 var cmdCall = result;
                 var task = Expression.Parameter(methodInfo.ReturnType);
@@ -58,8 +55,7 @@ namespace CookeRpc.AspNetCore.Model
                         Expression.Block(task.Call("GetAwaiter").Call("GetResult"),
                             Expression.Constant(null, typeof(object))), task));
             }
-            else if (typeof(Task).IsAssignableFrom(methodInfo.ReturnType))
-            {
+            else if (typeof(Task).IsAssignableFrom(methodInfo.ReturnType)) {
                 returnType = methodInfo.ReturnType.GetTaskType()!;
                 var cmdCall = result;
                 var task = Expression.Parameter(methodInfo.ReturnType);
@@ -70,8 +66,7 @@ namespace CookeRpc.AspNetCore.Model
                 result = ExpressionExtensions.Call(cmdCall, continueWithMethod,
                     Expression.Lambda(task.Call("GetAwaiter").Call("GetResult").Convert<object>(), task));
             }
-            else
-            {
+            else {
                 var cmdCall = result;
                 var fromResult = typeof(Task).GetMethod("FromResult")!.MakeGenericMethod(typeof(object));
                 result = Expression.Call(fromResult, Expression.Convert(cmdCall, typeof(object)));
@@ -88,29 +83,42 @@ namespace CookeRpc.AspNetCore.Model
                 RpcDelegate execDelegate = async context =>
                 {
                     var callArguments = new object?[rpcArguments.Count];
-                    for (var i = 0; i < rpcArguments.Count; i++)
-                    {
+                    for (var i = 0; i < rpcArguments.Count; i++) {
                         ParameterInfo parameterInfo = rpcArguments[i];
-                        var argument = await context.Invocation.ConsumeArgument(parameterInfo.ParameterType);
-                        if (!argument.HasValue)
-                        {
-                            if (!parameterInfo.HasDefaultValue)
-                            {
+                        Optional<object?> argument;
+                        try {
+                            argument = await context.Invocation.ConsumeArgument(parameterInfo.ParameterType);
+                        }
+                        catch (ArgumentException ex) {
+                            return new RpcError(context.Invocation.Id, Constants.ErrorCodes.BadRequest,
+                                $"Invalid value for parameter '{parameterInfo.Name}'", ex);
+                        }
+
+                        if (!argument.HasValue) {
+                            if (!parameterInfo.HasDefaultValue) {
                                 return new RpcError(context.Invocation.Id, Constants.ErrorCodes.BadRequest,
                                     $"Missing parameter '{parameterInfo.Name}'", null);
                             }
 
                             callArguments[i] = parameterInfo.DefaultValue;
                         }
-                        else
-                        {
+                        else {
+                            // var validationResults = new List<ValidationResult>();
+                            // Validator.TryValidateValue(argument.Value!, new ValidationContext(argument.Value!),
+                            //     validationResults, parameterInfo.GetCustomAttributes<ValidationAttribute>());
+                            // if (validationResults.Count > 0) {
+                            //     var errorMessage = string.Join("\n",
+                            //         validationResults.Select(x => x.ErrorMessage).Where(x => x is not null));
+                            //     return new RpcError(context.Invocation.Id, Constants.ErrorCodes.ParseError,
+                            //         errorMessage, null);
+                            // }
+
                             callArguments[i] = argument.Value;
                         }
                     }
 
                     var returnValue = await execute(context, callArguments);
-                    if (returnType == typeof(void))
-                    {
+                    if (returnType == typeof(void)) {
                         return new RpcReturnValue(context.Invocation.Id, new Optional<object?>());
                     }
 
@@ -144,17 +152,14 @@ namespace CookeRpc.AspNetCore.Model
             ParameterExpression contextParam,
             Type actualContextType,
             ParameterExpression argumentsArrayParam,
-            Func<ParameterInfo, ParameterResolver?>? parameterResolver) 
+            Func<ParameterInfo, ParameterResolver?>? parameterResolver)
         {
             int inputIndex = 0;
             var outerArguments = new List<ParameterInfo>();
             var methodArguments = new List<Expression>();
-            foreach (var parameterInfo in methodInfo.GetParameters())
-            {
-                if (parameterInfo.ParameterType.IsAssignableTo(typeof(RpcContext)))
-                {
-                    if (!actualContextType.IsAssignableTo(parameterInfo.ParameterType))
-                    {
+            foreach (var parameterInfo in methodInfo.GetParameters()) {
+                if (parameterInfo.ParameterType.IsAssignableTo(typeof(RpcContext))) {
+                    if (!actualContextType.IsAssignableTo(parameterInfo.ParameterType)) {
                         throw new ArgumentException(
                             $"Parameter of type {parameterInfo.ParameterType.Name} is not compatible with context of type {actualContextType.Name} in method {methodInfo}");
                     }
@@ -164,11 +169,9 @@ namespace CookeRpc.AspNetCore.Model
                 }
 
                 var resolver = parameterResolver?.Invoke(parameterInfo);
-                if (resolver != null)
-                {
+                if (resolver != null) {
                     methodArguments.Add(Expression.Convert(
-                        Expression.Invoke(Expression.Constant(resolver), contextParam),
-                        parameterInfo.ParameterType));
+                        Expression.Invoke(Expression.Constant(resolver), contextParam), parameterInfo.ParameterType));
                     continue;
                 }
 
@@ -185,24 +188,23 @@ namespace CookeRpc.AspNetCore.Model
 
         private static RpcDelegate CreateAuthorizeFunc(MethodInfo methodInfo, RpcDelegate next)
         {
-            if (methodInfo.GetCustomAttribute<AllowAnonymousAttribute>() != null)
-            {
+            if (methodInfo.GetCustomAttribute<AllowAnonymousAttribute>() != null) {
                 return next;
             }
 
             var authData = methodInfo.GetCustomAttributes<AuthorizeAttribute>()
-                .Concat(methodInfo.DeclaringType!.GetCustomAttributes<AuthorizeAttribute>()).Cast<IAuthorizeData>().ToArray();
+                .Concat(methodInfo.DeclaringType!.GetCustomAttributes<AuthorizeAttribute>()).Cast<IAuthorizeData>()
+                .ToArray();
 
-            if (!authData.Any())
-            {
+            if (!authData.Any()) {
                 return next;
             }
 
             return async context =>
             {
-                var authorized = await IsAuthorized(context, authData);;
-                if (!authorized)
-                {
+                var authorized = await IsAuthorized(context, authData);
+                ;
+                if (!authorized) {
                     return new RpcError(context.Invocation.Id, Constants.ErrorCodes.AuthorizationError,
                         "Not authorized", null);
                 }
@@ -217,7 +219,8 @@ namespace CookeRpc.AspNetCore.Model
             var policyProvider = context.ServiceProvider.GetRequiredService<IAuthorizationPolicyProvider>();
             var policy = await AuthorizationPolicy.CombineAsync(policyProvider, authData);
             var authResult =
-                await authorizationService.AuthorizeAsync(context.User, policy ?? throw new InvalidOperationException());
+                await authorizationService.AuthorizeAsync(context.User,
+                    policy ?? throw new InvalidOperationException());
             return authResult.Succeeded;
         }
     }
@@ -229,7 +232,6 @@ namespace CookeRpc.AspNetCore.Model
         public static class ErrorCodes
         {
             public const string AuthorizationError = "authorization_error";
-            public const string ParseError = "parse_error";
             public const string ProcedureNotFound = "procedure_not_found";
             public const string BadRequest = "bad_request";
             public const string ServerError = "server_error";
