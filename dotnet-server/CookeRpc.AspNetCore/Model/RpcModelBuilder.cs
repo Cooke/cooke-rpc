@@ -48,6 +48,7 @@ namespace CookeRpc.AspNetCore.Model
                 if (!_types.Contains(primitiveType)) {
                     _types.Add(primitiveType);
                 }
+
                 _mappings.Add(clrType, primitiveType);
                 return primitiveType;
             }
@@ -71,10 +72,7 @@ namespace CookeRpc.AspNetCore.Model
                 var mapType = (PrimitiveRpcType)MapType(typeof(Dictionary<,>));
                 var genericType = new GenericRpcType(clrType, mapType, typeArguments);
                 _mappings.Add(clrType, genericType);
-                typeArguments.AddRange(new[]
-                {
-                    MapType(keyType), MapType(valueType)
-                });
+                typeArguments.AddRange(new[] { MapType(keyType), MapType(valueType) });
                 return genericType;
             }
 
@@ -90,10 +88,7 @@ namespace CookeRpc.AspNetCore.Model
 
             var genericNullable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Nullable<>));
             if (genericNullable != null) {
-                var typeArguments = new List<IRpcType>
-                {
-                    PrimitiveTypes.Null
-                };
+                var typeArguments = new List<IRpcType> { PrimitiveTypes.Null };
                 var unionType = new UnionRpcType(typeArguments, clrType);
                 _mappings.Add(clrType, unionType);
                 typeArguments.Add(MapType(genericNullable.GetGenericArguments().Single()));
@@ -155,13 +150,11 @@ namespace CookeRpc.AspNetCore.Model
 
                 List<RpcParameterModel> rpcParameterModels = new();
                 foreach (var parameterInfo in parameterInfos) {
-                    var paraType = ReflectionHelper.IsNullable(parameterInfo)
-                        ? new UnionRpcType(new[]
-                            {
-                                PrimitiveTypes.Null, MapType(parameterInfo.ParameterType)
-                            },
-                            parameterInfo.ParameterType)
-                        : MapType(parameterInfo.ParameterType);
+                    var paraType =
+                        WrapRestrictions(
+                            ReflectionHelper.IsNullable(parameterInfo)
+                                ? MakeNullable(MapType(parameterInfo.ParameterType))
+                                : MapType(parameterInfo.ParameterType), parameterInfo);
 
                     var paraModel = new RpcParameterModel(parameterInfo.Name ?? throw new InvalidOperationException(),
                         paraType, parameterInfo.HasDefaultValue);
@@ -171,10 +164,7 @@ namespace CookeRpc.AspNetCore.Model
 
                 var rpcReturnType = MapType(returnType);
                 var returnTypeModel = ReflectionHelper.IsNullableReturn(method)
-                    ? new UnionRpcType(new[]
-                    {
-                        PrimitiveTypes.Null, rpcReturnType
-                    }, method.ReturnType)
+                    ? new UnionRpcType(new[] { PrimitiveTypes.Null, rpcReturnType }, method.ReturnType)
                     : rpcReturnType;
 
                 var procModel = new RpcProcedureModel(_options.ProcedureNameFormatter(method), rpcDelegate,
@@ -197,7 +187,8 @@ namespace CookeRpc.AspNetCore.Model
             _mappings.Add(clrType, type);
             var rpcType = type;
 
-            if (clrType.BaseType != typeof(object) && clrType.BaseType != null && _options.TypeFilter(clrType.BaseType)) {
+            if (clrType.BaseType != typeof(object) && clrType.BaseType != null &&
+                _options.TypeFilter(clrType.BaseType)) {
                 var rpcBaseType = MapType(clrType.BaseType);
                 extends.Add(rpcBaseType);
             }
@@ -209,10 +200,7 @@ namespace CookeRpc.AspNetCore.Model
 
             props.AddRange(CreatePropertyDefinitions(clrType).OrderBy(x => x.Name));
 
-            foreach (var subType in ReflectionHelper.FindAllOfType(clrType).Except(new[]
-                         {
-                             clrType
-                         })
+            foreach (var subType in ReflectionHelper.FindAllOfType(clrType).Except(new[] { clrType })
                          .Where(_options.TypeFilter)) {
                 MapType(subType);
             }
@@ -225,11 +213,8 @@ namespace CookeRpc.AspNetCore.Model
             var memberTypes = new List<IRpcType>();
             var type = new UnionRpcType(memberTypes, clrType);
             _mappings.Add(clrType, type);
-            memberTypes.AddRange(ReflectionHelper.FindAllOfType(clrType).Except(new[]
-                {
-                    clrType
-                }).Where(_options.TypeFilter)
-                .Select(MapType));
+            memberTypes.AddRange(ReflectionHelper.FindAllOfType(clrType).Except(new[] { clrType })
+                .Where(_options.TypeFilter).Select(MapType));
             return type;
         }
 
@@ -243,33 +228,12 @@ namespace CookeRpc.AspNetCore.Model
             return enumType;
         }
 
-        private IEnumerable<RpcPropertyDefinition> CreatePropertyDefinitions(Type type)
+        private IEnumerable<RpcPropertyDefinition> CreatePropertyDefinitions(Type clrType)
         {
-            var memberInfos = type.GetMembers(_options.MemberBindingFilter).Where(_options.MemberFilter);
+            var memberInfos = clrType.GetMembers(_options.MemberBindingFilter).Where(_options.MemberFilter);
 
             var props = new List<RpcPropertyDefinition>();
 
-            RpcPropertyDefinition CreatePropertyModel(Type memberType, MemberInfo memberInfo)
-            {
-                var propTypeRef = MapType(memberType);
-                var scarType = _options.IsMemberNullable(memberInfo)
-                    ? new UnionRpcType(new[]
-                    {
-                        PrimitiveTypes.Null, propTypeRef
-                    }, memberType)
-                    : propTypeRef;
-
-                var dataTypeAttribute = memberInfo.GetCustomAttribute<DataTypeAttribute>();
-                var nextType = dataTypeAttribute != null
-                    ? new RestrictedType(scarType, dataTypeAttribute.DataType != DataType.Custom ? dataTypeAttribute.DataType : dataTypeAttribute.CustomDataType!)
-                    : scarType;
-                var propertyDefinition = new RpcPropertyDefinition(_options.MemberNameFormatter(memberInfo),
-                    scarType, memberInfo)
-                {
-                    IsOptional = _options.IsMemberOptional(memberInfo),
-                };
-                return propertyDefinition;
-            }
 
             foreach (var memberInfo in memberInfos) {
                 switch (memberInfo) {
@@ -292,6 +256,37 @@ namespace CookeRpc.AspNetCore.Model
             }
 
             return props;
+
+            RpcPropertyDefinition CreatePropertyModel(Type memberType, MemberInfo memberInfo)
+            {
+                var type = WrapRestrictions(
+                    _options.IsMemberNullable(memberInfo) ? MakeNullable(MapType(memberType)) : MapType(memberType),
+                    memberInfo);
+                var propertyDefinition =
+                    new RpcPropertyDefinition(_options.MemberNameFormatter(memberInfo), type, memberInfo)
+                    {
+                        IsOptional = _options.IsMemberOptional(memberInfo),
+                    };
+                return propertyDefinition;
+            }
+        }
+
+        private static UnionRpcType MakeNullable(IRpcType innerType)
+        {
+            return new UnionRpcType(new[] { PrimitiveTypes.Null, innerType }, innerType.ClrType);
+        }
+
+        private static IRpcType WrapRestrictions(IRpcType innerType, ICustomAttributeProvider customAttributeProvider)
+        {
+            return customAttributeProvider.GetCustomAttributes(typeof(DataTypeAttribute), true)
+                .OfType<DataTypeAttribute>().AsEnumerable().Aggregate(innerType, RestrictType);
+
+            RestrictedRpcType RestrictType(IRpcType toRestrict, DataTypeAttribute dataTypeAttribute) =>
+                new RestrictedRpcType(toRestrict,
+                    (dataTypeAttribute.DataType != DataType.Custom
+                        ? dataTypeAttribute.DataType.ToString()
+                        : dataTypeAttribute.CustomDataType) ?? throw new InvalidOperationException(
+                        "Type with DataTypeAttribute(DataType=Custom) must have a value for DataTypeAttribute.CustomDataType"));
         }
 
         public RpcModel Build()

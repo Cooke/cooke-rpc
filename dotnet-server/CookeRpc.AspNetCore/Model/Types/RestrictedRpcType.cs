@@ -1,14 +1,10 @@
 ﻿using System;
+using CookeRpc.AspNetCore.Model.TypeDefinitions;
 
-namespace CookeRpc.AspNetCore.Model.TypeDefinitions
+namespace CookeRpc.AspNetCore.Model.Types
 {
-    public class RestrictedRpcType : IRpcType
+    public record RestrictedRpcType(IRpcType InnerType, string Restriction) : IRpcType
     {
-        public RestrictedRpcType(string name, Type clrType, string restriction)
-        {
-            ClrType = clrType;
-        }
-
-        public Type ClrType { get; }
+        public Type ClrType => InnerType.ClrType;
     }
 }
