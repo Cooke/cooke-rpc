@@ -14,8 +14,8 @@ namespace CookeRpc.AspNetCore.Model
 {
     public class RpcModelBuilderOptions
     {
-        public static readonly ImmutableDictionary<Type, PrimitiveRpcType> DefaultPrimitiveTypeMap =
-            new Dictionary<Type, PrimitiveRpcType>
+        public static readonly ImmutableDictionary<Type, IRpcType> DefaultMapResolutions =
+            new Dictionary<Type, IRpcType>
             {
                 { typeof(string), PrimitiveTypes.String },
                 { typeof(int), PrimitiveTypes.Number },
@@ -75,7 +75,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public Func<Type, string> ServiceNameFormatter { get; init; } = type => type.Name;
 
-        public IReadOnlyDictionary<Type, PrimitiveRpcType> PrimitiveTypeMap { get; init; } = DefaultPrimitiveTypeMap;
+        public IReadOnlyDictionary<Type, IRpcType> MapResolutions { get; init; } = DefaultMapResolutions;
 
         public Type ContextType { get; init; } = typeof(RpcContext);
 
@@ -83,6 +83,6 @@ namespace CookeRpc.AspNetCore.Model
 
         public Func<MemberInfo, string> ProcedureNameFormatter { get; init; } = x => x.Name;
 
-        public Action<Type, RpcModelBuilder>? OnAddingType { get; init; } = null;
+        public Action<Type, RpcModelBuilder>? OnMappingType { get; init; } = null;
     }
 }

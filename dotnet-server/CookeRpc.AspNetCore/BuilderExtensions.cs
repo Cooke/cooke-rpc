@@ -1,12 +1,11 @@
 using System;
 using System.Linq;
-using System.Net.Http;
 using System.Reflection;
+using System.Text.Json;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.JsonSerialization;
 using CookeRpc.AspNetCore.Model;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
-using CookeRpc.AspNetCore.Model.Types;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -42,7 +41,8 @@ namespace CookeRpc.AspNetCore
         //     return model.AddType(typeof(T), rpcType);
         // }
 
-        public static RpcModelBuilder AddRpcServicesByAttribute<TAttribute>(this RpcModelBuilder model) where TAttribute : Attribute
+        public static RpcModelBuilder AddRpcServicesByAttribute<TAttribute>(this RpcModelBuilder model)
+            where TAttribute : Attribute
         {
             var controllerTypes = Assembly.GetCallingAssembly().GetTypes()
                 .Concat(Assembly.GetEntryAssembly()?.GetTypes() ?? ArraySegment<Type>.Empty)
@@ -53,6 +53,15 @@ namespace CookeRpc.AspNetCore
             }
 
             return model;
+        }
+
+        public static IApplicationBuilder UseRpc(this IApplicationBuilder app,
+            RpcModel model,
+            Action<JsonSerializerOptions> configureSerializer,
+            string path = "/rpc")
+        {
+            var serializer = new SystemTextJsonRpcSerializer(new RpcModelTypeBinder(model), configureSerializer);
+            return UseRpc(app, model, serializer, path);
         }
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, RpcModel model, string path = "/rpc")

@@ -103,16 +103,6 @@ namespace CookeRpc.AspNetCore.Model
                             callArguments[i] = parameterInfo.DefaultValue;
                         }
                         else {
-                            // var validationResults = new List<ValidationResult>();
-                            // Validator.TryValidateValue(argument.Value!, new ValidationContext(argument.Value!),
-                            //     validationResults, parameterInfo.GetCustomAttributes<ValidationAttribute>());
-                            // if (validationResults.Count > 0) {
-                            //     var errorMessage = string.Join("\n",
-                            //         validationResults.Select(x => x.ErrorMessage).Where(x => x is not null));
-                            //     return new RpcError(context.Invocation.Id, Constants.ErrorCodes.ParseError,
-                            //         errorMessage, null);
-                            // }
-
                             callArguments[i] = argument.Value;
                         }
                     }
