@@ -8,8 +8,7 @@ namespace CookeRpc.AspNetCore
     }
 
     [AttributeUsage(
-        AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Enum | AttributeTargets.Parameter |
-        AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.ReturnValue, Inherited = false)]
+        AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Enum, Inherited = false)]
     public class RpcTypeAttribute : Attribute
     {
         public string? Name { get; init; }

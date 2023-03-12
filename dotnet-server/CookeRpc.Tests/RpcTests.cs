@@ -97,14 +97,14 @@ namespace CookeRpc.Tests
         }
 
         [Fact]
-        public async Task Invocation_With_Argument_Of_Incorrect_Restricted_Type_Shall_Return_ParseError()
+        public async Task Invocation_With_Invalid_Type_Shall_Give_Bad_Request()
         {
             var client = _host.GetTestClient();
             var response = await Invoke(client, "TestController", "SetEmail", "invalid_email");
             response.EnsureSuccessStatusCode();
 
             Assert.Equal(
-                "[{\"id\":\"123\",\"errorCode\":\"bad_request\",\"errorMessage\":\"Invalid value for parameter\"}]",
+                "[{\"id\":\"123\",\"errorCode\":\"bad_request\",\"errorMessage\":\"Invalid value for parameter \\u0027email\\u0027\"}]",
                 await response.Content.ReadAsStringAsync());
         }
 

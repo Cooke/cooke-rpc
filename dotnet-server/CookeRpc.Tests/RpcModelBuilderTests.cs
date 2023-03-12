@@ -67,23 +67,15 @@ namespace CookeRpc.Tests
         }
 
         [Fact]
-        public void Parameters_With_DataTypeAttribute_Shall_Give_Restricted_RpcType()
+        public void Class_Shall_Support_RpcTypeAttribute()
         {
             var proc = _serviceModel.Procedures.Single(x => x.Name == "SetEmailAddress");
-            Assert.Equal(new RestrictedRpcType(PrimitiveTypes.String, "EmailAddress"), proc.Parameters.First().Type);
-        }
-
-        [Fact]
-        public void Property_With_DataTypeAttribute_Shall_Give_Restricted_RpcType()
-        {
-            var proc = _serviceModel.Procedures.Single(x => x.Name == "SetEmailAddressType");
-            Assert.Equal(new RestrictedRpcType(PrimitiveTypes.String, "EmailAddress"),
-                ((ObjectRpcType)proc.Parameters.First().Type).Properties.Single().Type);
+            Assert.Equal(new PrimitiveRpcType("EmailAddress", typeof(EmailAddress)), proc.Parameters.First().Type);
         }
 
         private static void AssertNullable(IRpcType type)
         {
-            Assert.Contains(Assert.IsType<UnionRpcType>(type).Types, t => t is PrimitiveRpcType { Name: "null" });
+            Assert.Contains(Assert.IsType<UnionRpcType>(type).Types, t => t is PrimitiveRpcType {Name: "null"});
         }
 
         [RpcService]
@@ -105,11 +97,7 @@ namespace CookeRpc.Tests
             {
             }
 
-            public void SetEmailAddress([EmailAddress] string email)
-            {
-            }
-
-            public void SetEmailAddressType(EmailAddress email)
+            public void SetEmailAddress(EmailAddress email)
             {
             }
         }
@@ -127,7 +115,7 @@ namespace CookeRpc.Tests
         {
         }
 
-        // TODO may be possible to skip the property prefix and deduce the data type attribute from the constructor
-        public record EmailAddress([property: EmailAddress] String Value);
+        [RpcType(Kind = RpcTypeKind.Primitive)]
+        public record EmailAddress(String Value);
     }
 }

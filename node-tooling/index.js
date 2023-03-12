@@ -53,6 +53,9 @@ function generateRpcTs(meta) {
   stream.write("// tslint:disable\n");
 
   stream.write(`import { createRpcInvoker } from "cooke-rpc";\n\n`);
+  stream.write(
+    "export type Nominal<TData, TBrand> = TData & { __brand: TBrand };\n\n"
+  );
 
   // Register all types that requires a discriminator due to participating in polymorphic scenarios
   const discriminatedTypes = new Set();
@@ -186,6 +189,10 @@ function generateRpcTs(meta) {
 
   for (const type of meta.types) {
     if (type.kind === "primitive") {
+      switch (type.name) {
+        case "Email":
+          stream.write(`export type Email = Nominal<string, "Email">;\n\n`);
+      }
     } else if (type.kind === "union") {
       stream.write(`export type ${type.name} = `);
       stream.write(formatTypeUsage(type));
