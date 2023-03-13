@@ -92,7 +92,7 @@ namespace CookeRpc.Tests
             var client = _host.GetTestClient();
             var metadata = await client.GetFromJsonAsync<JsonDocument>("/rpc/introspection");
             Assert.NotNull(metadata);
-            _testOutputHelper.WriteLine(metadata.RootElement.ToString());
+            _testOutputHelper.WriteLine(metadata!.RootElement.ToString());
         }
 
         [Fact]
@@ -103,7 +103,7 @@ namespace CookeRpc.Tests
             response.EnsureSuccessStatusCode();
 
             Assert.Equal(
-                "[{\"id\":\"123\",\"errorCode\":\"bad_request\",\"errorMessage\":\"Invalid value for parameter \\u0027email\\u0027\"}]",
+                "[{\"id\":\"123\",\"errorCode\":\"bad_request\",\"errorMessage\":\"Invalid value for parameter \\u0027email\\u0027: Invalid email\"}]",
                 await response.Content.ReadAsStringAsync());
         }
 
@@ -144,7 +144,7 @@ namespace CookeRpc.Tests
         [JsonConverter(typeof(EmailConverter))]
         public record Email(string Value)
         {
-            public string Value { get; } = Value.Contains("@") ? Value : throw new ArgumentOutOfRangeException("Value");
+            public string Value { get; } = Value.Contains("@") ? Value : throw new ArgumentException("Invalid email");
         }
 
         public class EmailConverter : JsonConverter<RpcTests.Email>

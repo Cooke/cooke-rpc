@@ -91,7 +91,7 @@ namespace CookeRpc.AspNetCore.Model
                         }
                         catch (ArgumentException ex) {
                             return new RpcError(context.Invocation.Id, Constants.ErrorCodes.BadRequest,
-                                $"Invalid value for parameter '{parameterInfo.Name}'", ex);
+                                $"Invalid value for parameter '{parameterInfo.Name}': {ex.Message}", ex);
                         }
 
                         if (!argument.HasValue) {

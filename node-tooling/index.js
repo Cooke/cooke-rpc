@@ -5,14 +5,17 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const [command, rpcUrl, outputFilePath] = [
+const [command, rpcUrl, outputFilePath, customPrimitivesModule] = [
   process.argv[2],
   process.argv[3],
   process.argv[4],
+  process.argv[5],
 ];
 
 function printSyntax() {
-  console.info("Syntax: cooke-rpc generate <http endpoint> <output file>");
+  console.info(
+    "Syntax: cooke-rpc generate <http endpoint> <output file> [import/path/to/custom/primitives.ts]"
+  );
 }
 
 if (command !== "generate") {
@@ -53,9 +56,27 @@ function generateRpcTs(meta) {
   stream.write("// tslint:disable\n");
 
   stream.write(`import { createRpcInvoker } from "cooke-rpc";\n\n`);
-  stream.write(
-    "export type Nominal<TData, TBrand> = TData & { __brand: TBrand };\n\n"
-  );
+
+  const nativePrimitives = [
+    "string",
+    "array",
+    "boolean",
+    "number",
+    "optional",
+    "void",
+  ];
+
+  if (customPrimitivesModule) {
+    for (const type of meta.types) {
+      if (type.kind === "primitive" && !nativePrimitives.includes(type.name)) {
+        stream.write(
+          `import { ${type.name} } from "${customPrimitivesModule}";\n`
+        );
+      }
+    }
+
+    stream.write(`\n`);
+  }
 
   // Register all types that requires a discriminator due to participating in polymorphic scenarios
   const discriminatedTypes = new Set();
@@ -189,10 +210,6 @@ function generateRpcTs(meta) {
 
   for (const type of meta.types) {
     if (type.kind === "primitive") {
-      switch (type.name) {
-        case "Email":
-          stream.write(`export type Email = Nominal<string, "Email">;\n\n`);
-      }
     } else if (type.kind === "union") {
       stream.write(`export type ${type.name} = `);
       stream.write(formatTypeUsage(type));

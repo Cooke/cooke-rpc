@@ -57,38 +57,42 @@ namespace CookeRpc.AspNetCore
         {
             await context.Response.WriteAsJsonAsync(new
             {
-                types = _model.Types
-                    .Select(GetTypeDeclaration),
+                types = _model.Types.Select(GetTypeDeclaration),
                 services = _model.Services.Select(x => new
                 {
                     x.Name,
                     procedures = x.Procedures.Select(p => new
                     {
                         p.Name,
-                        returnType = GetIntrospectionType(p.ReturnType),
+                        returnType = GetTypeUsage(p.ReturnType),
                         parameters = p.Parameters.Select(pa => new
                         {
                             pa.Name,
-                            type = GetIntrospectionType(pa.Type)
+                            type = GetTypeUsage(pa.Type)
                         })
                     })
                 })
             }, _introspectionSerializerOptions);
 
-            static object GetIntrospectionType(IRpcType type) =>
+            static object GetTypeUsage(IRpcType type) =>
                 type switch
                 {
                     INamedRpcType refType => refType.Name,
+                    RegexRpcType regexType => new
+                    {
+                        kind = "regex",
+                        pattern = regexType.Pattern
+                    },
                     UnionRpcType unionType => new
                     {
                         kind = "union",
-                        types = unionType.Types.Select(GetIntrospectionType)
+                        types = unionType.Types.Select(GetTypeUsage)
                     },
                     GenericRpcType genericType => new
                     {
                         kind = "generic",
                         name = genericType.TypeDefinition.Name,
-                        typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
+                        typeArguments = genericType.TypeArguments.Select(GetTypeUsage)
                     },
                     _ => throw new ArgumentOutOfRangeException(nameof(type))
                 };
@@ -116,7 +120,7 @@ namespace CookeRpc.AspNetCore
                         name = obj.Name,
                         kind = "object",
                         properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
-                        extends = obj.Extends.Count == 0 ? null : obj.Extends.Select(GetIntrospectionType),
+                        extends = obj.Extends.Count == 0 ? null : obj.Extends.Select(GetTypeUsage),
                         @abstract = obj.IsAbstract
                     },
                     _ => throw new ArgumentOutOfRangeException(nameof(type))
@@ -126,7 +130,7 @@ namespace CookeRpc.AspNetCore
                 new
                 {
                     p.Name,
-                    Type = GetIntrospectionType(p.Type),
+                    Type = GetTypeUsage(p.Type),
                     optional = (bool?)(p.IsOptional ? true : null)
                 };
         }

@@ -73,9 +73,23 @@ namespace CookeRpc.Tests
             Assert.Equal(new PrimitiveRpcType("EmailAddress", typeof(EmailAddress)), proc.Parameters.First().Type);
         }
 
+        [Fact]
+        public void Parameter_Shall_Support_RegexRpcTypeAttribute()
+        {
+            var proc = _serviceModel.Procedures.Single(x => x.Name == "SetRegex");
+            Assert.Equal(new RegexRpcType("abc.+"), proc.Parameters.First().Type);
+        }
+
+        [Fact]
+        public void Class_Shall_Support_RegexRpcTypeAttribute()
+        {
+            var proc = _serviceModel.Procedures.Single(x => x.Name == "SetInputWithRegex");
+            Assert.Equal(new RegexRpcType(".{2,4}"), ((ObjectRpcType)proc.Parameters.First().Type).Properties.First().Type);
+        }
+
         private static void AssertNullable(IRpcType type)
         {
-            Assert.Contains(Assert.IsType<UnionRpcType>(type).Types, t => t is PrimitiveRpcType {Name: "null"});
+            Assert.Contains(Assert.IsType<UnionRpcType>(type).Types, t => t is PrimitiveRpcType { Name: "null" });
         }
 
         [RpcService]
@@ -100,6 +114,14 @@ namespace CookeRpc.Tests
             public void SetEmailAddress(EmailAddress email)
             {
             }
+
+            public void SetRegex([RegexRpcType("abc.+")] string abcString)
+            {
+            }
+            
+            public void SetInputWithRegex(InputWithRegex input)
+            {
+            }
         }
 
         [RpcType(Name = "Result")]
@@ -117,5 +139,7 @@ namespace CookeRpc.Tests
 
         [RpcType(Kind = RpcTypeKind.Primitive)]
         public record EmailAddress(String Value);
+
+        public record InputWithRegex([property:RegexRpcType(".{2,4}")] String Value);
     }
 }

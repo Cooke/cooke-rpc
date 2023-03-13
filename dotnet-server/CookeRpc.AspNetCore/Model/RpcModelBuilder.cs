@@ -211,9 +211,10 @@ namespace CookeRpc.AspNetCore.Model
 
             RpcPropertyDefinition CreatePropertyModel(Type memberType, MemberInfo memberInfo)
             {
+                var innerType = MapType(memberType, memberInfo);
                 var type = _options.IsMemberNullable(memberInfo)
-                    ? MakeNullable(MapType(memberType))
-                    : MapType(memberType);
+                    ? MakeNullable(innerType)
+                    : innerType;
                 return new RpcPropertyDefinition(_options.MemberNameFormatter(memberInfo), type, memberInfo)
                 {
                     IsOptional = _options.IsMemberOptional(memberInfo),
@@ -261,10 +262,10 @@ namespace CookeRpc.AspNetCore.Model
 
                 List<RpcParameterModel> rpcParameterModels = new();
                 foreach (var parameterInfo in parameterInfos) {
+                    var innerType = MapType(parameterInfo.ParameterType, parameterInfo);
                     var paraModel = new RpcParameterModel(parameterInfo.Name ?? throw new InvalidOperationException(),
-                        ReflectionHelper.IsNullable(parameterInfo)
-                            ? MakeNullable(MapType(parameterInfo.ParameterType))
-                            : MapType(parameterInfo.ParameterType), parameterInfo.HasDefaultValue);
+                        ReflectionHelper.IsNullable(parameterInfo) ? MakeNullable(innerType) : innerType,
+                        parameterInfo.HasDefaultValue);
 
                     rpcParameterModels.Add(paraModel);
                 }
@@ -282,6 +283,18 @@ namespace CookeRpc.AspNetCore.Model
 
             _services.Add(serviceType, serviceModel);
             return serviceModel;
+        }
+
+        private IRpcType MapType(Type fromType, ICustomAttributeProvider attributeProvider)
+        {
+            var regexAttribute = attributeProvider.GetCustomAttributes(typeof(RegexRpcTypeAttribute), false)
+                .OfType<RegexRpcTypeAttribute>().FirstOrDefault();
+            return regexAttribute != null ? CreateRegexType(regexAttribute) : MapType(fromType);
+        }
+
+        private IRpcType CreateRegexType(RegexRpcTypeAttribute regexRpcTypeAttribute)
+        {
+            return new RegexRpcType(regexRpcTypeAttribute.Pattern);
         }
 
         private static UnionRpcType MakeNullable(IRpcType innerType)
