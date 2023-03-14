@@ -23,6 +23,8 @@ namespace CookeRpc.AspNetCore.Model.TypeDefinitions
 
         public IReadOnlyCollection<IRpcType> Extends { get; }
 
+        public IDictionary<String, Object> Metadata { get; init; } = new Dictionary<string, object>();
+
         public bool IsAbstract { get; }
         public Type ClrType { get; }
         public string Name { get; }

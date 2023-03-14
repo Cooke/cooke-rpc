@@ -15,10 +15,10 @@ namespace CookeRpc.AspNetCore
         public RpcTypeKind Kind { get; init; }
     }
 
-    [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property)]
-    public class RegexRpcTypeAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property | AttributeTargets.Class)]
+    public class RegexRestrictedStringRpcTypeAttribute : Attribute
     {
-        public RegexRpcTypeAttribute(string pattern)
+        public RegexRestrictedStringRpcTypeAttribute(string pattern)
         {
             Pattern = pattern;
         }

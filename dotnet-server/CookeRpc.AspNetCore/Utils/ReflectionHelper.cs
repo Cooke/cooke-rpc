@@ -53,6 +53,13 @@ namespace CookeRpc.AspNetCore.Utils
                 .Concat(fieldInfos.Select(x => x.GetValue(null)).OfType<TProperty>());
         }
 
+        public static IEnumerable<MemberInfo> GetAllStaticProperties(Type t)
+        {
+            var propertyInfos = t.GetProperties(BindingFlags.Static | BindingFlags.Public);
+            var fieldInfos = t.GetFields(BindingFlags.Static | BindingFlags.Public);
+            return propertyInfos.Cast<MemberInfo>().AsEnumerable().Concat(fieldInfos.AsEnumerable());
+        }
+
         public static bool IsNullable(MemberInfo memberInfo)
         {
             return memberInfo switch

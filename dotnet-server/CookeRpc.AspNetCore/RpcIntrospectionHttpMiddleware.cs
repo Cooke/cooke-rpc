@@ -78,10 +78,10 @@ namespace CookeRpc.AspNetCore
                 type switch
                 {
                     INamedRpcType refType => refType.Name,
-                    RegexRpcType regexType => new
+                    RegexRestrictedStringRpcType regexString => new
                     {
-                        kind = "regex",
-                        pattern = regexType.Pattern
+                        kind = "regex-restricted-string",
+                        regex = regexString.Pattern
                     },
                     UnionRpcType unionType => new
                     {

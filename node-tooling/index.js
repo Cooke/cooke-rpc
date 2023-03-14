@@ -116,6 +116,9 @@ function generateRpcTs(meta) {
     }
 
     switch (type.kind) {
+      case "regex-restricted-string":
+        return "string";
+
       case "union":
         if (type.types.length === 0) {
           return "never";
@@ -168,6 +171,9 @@ function generateRpcTs(meta) {
       properties
         .map(
           (p) =>
+            (p.type.kind === "regex-restricted-string"
+              ? `  /** Regex: ${p.type.regex} */\n`
+              : "") +
             `  ${p.name}${
               (p.type.kind === "generic" && p.type.name === "optional") ||
               p.optional
@@ -204,7 +210,6 @@ function generateRpcTs(meta) {
     }
 
     writeProperties(stream, type.properties);
-
     stream.write("\n}");
   }
 

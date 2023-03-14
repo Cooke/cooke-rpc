@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Security.Principal;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
 using CookeRpc.AspNetCore.Utils;
@@ -24,9 +25,10 @@ namespace CookeRpc.AspNetCore.Model
             _options = options;
         }
 
-        public void MapType(Type clrType, IRpcType type)
+        public IRpcType MapType(Type clrType, IRpcType type)
         {
             _mappings.Add(clrType, type);
+            return type;
         }
 
         public IRpcType MapType(Type clrType)
@@ -64,6 +66,11 @@ namespace CookeRpc.AspNetCore.Model
                 var type = new PrimitiveRpcType(rpcTypeAttribute.Name ?? _options.TypeNameFormatter(clrType), clrType);
                 _mappings.Add(clrType, type);
                 return type;
+            }
+
+            var regexAttribute = clrType.GetCustomAttribute<RegexRestrictedStringRpcTypeAttribute>();
+            if (regexAttribute != null) {
+                return MapType(clrType, CreateRegexRestrictedStringType(regexAttribute));
             }
 
             var genericDictionary = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IDictionary<,>)) ??
@@ -129,7 +136,10 @@ namespace CookeRpc.AspNetCore.Model
 
         private IRpcType MapNullableType(Type clrType, Type genericNullable)
         {
-            var typeArguments = new List<IRpcType> { PrimitiveTypes.Null };
+            var typeArguments = new List<IRpcType>
+            {
+                PrimitiveTypes.Null
+            };
             var unionType = new UnionRpcType(typeArguments, clrType);
             _mappings.Add(clrType, unionType);
             typeArguments.Add(MapType(genericNullable.GetGenericArguments().Single()));
@@ -154,7 +164,10 @@ namespace CookeRpc.AspNetCore.Model
             var mapType = (PrimitiveRpcType)MapType(typeof(Dictionary<,>));
             var genericType = new GenericRpcType(clrType, mapType, typeArguments);
             _mappings.Add(clrType, genericType);
-            typeArguments.AddRange(new[] { MapType(keyType), MapType(valueType) });
+            typeArguments.AddRange(new[]
+            {
+                MapType(keyType), MapType(valueType)
+            });
             return genericType;
         }
 
@@ -180,11 +193,14 @@ namespace CookeRpc.AspNetCore.Model
 
             props.AddRange(CreatePropertyDefinitions(clrType).OrderBy(x => x.Name));
 
-            foreach (var subType in ReflectionHelper.FindAllOfType(clrType).Except(new[] { clrType })
+            foreach (var subType in ReflectionHelper.FindAllOfType(clrType).Except(new[]
+                         {
+                             clrType
+                         })
                          .Where(_options.TypeFilter)) {
                 MapType(subType);
             }
-
+            
             return rpcType;
         }
 
@@ -227,7 +243,10 @@ namespace CookeRpc.AspNetCore.Model
             var memberTypes = new List<IRpcType>();
             var type = new UnionRpcType(memberTypes, clrType);
             _mappings.Add(clrType, type);
-            memberTypes.AddRange(ReflectionHelper.FindAllOfType(clrType).Except(new[] { clrType })
+            memberTypes.AddRange(ReflectionHelper.FindAllOfType(clrType).Except(new[]
+                {
+                    clrType
+                })
                 .Where(_options.TypeFilter).Select(MapType));
             return type;
         }
@@ -272,7 +291,10 @@ namespace CookeRpc.AspNetCore.Model
 
                 var rpcReturnType = MapType(returnType);
                 var returnTypeModel = ReflectionHelper.IsNullableReturn(method)
-                    ? new UnionRpcType(new[] { PrimitiveTypes.Null, rpcReturnType }, method.ReturnType)
+                    ? new UnionRpcType(new[]
+                    {
+                        PrimitiveTypes.Null, rpcReturnType
+                    }, method.ReturnType)
                     : rpcReturnType;
 
                 var procModel = new RpcProcedureModel(_options.ProcedureNameFormatter(method), rpcDelegate,
@@ -287,19 +309,22 @@ namespace CookeRpc.AspNetCore.Model
 
         private IRpcType MapType(Type fromType, ICustomAttributeProvider attributeProvider)
         {
-            var regexAttribute = attributeProvider.GetCustomAttributes(typeof(RegexRpcTypeAttribute), false)
-                .OfType<RegexRpcTypeAttribute>().FirstOrDefault();
-            return regexAttribute != null ? CreateRegexType(regexAttribute) : MapType(fromType);
+            var regexAttribute = attributeProvider.GetCustomAttributes(typeof(RegexRestrictedStringRpcTypeAttribute), false)
+                .OfType<RegexRestrictedStringRpcTypeAttribute>().FirstOrDefault();
+            return regexAttribute != null ? CreateRegexRestrictedStringType(regexAttribute) : MapType(fromType);
         }
 
-        private IRpcType CreateRegexType(RegexRpcTypeAttribute regexRpcTypeAttribute)
+        private IRpcType CreateRegexRestrictedStringType(RegexRestrictedStringRpcTypeAttribute regexRestrictedStringRpcTypeAttribute)
         {
-            return new RegexRpcType(regexRpcTypeAttribute.Pattern);
+            return new RegexRestrictedStringRpcType(regexRestrictedStringRpcTypeAttribute.Pattern);
         }
 
         private static UnionRpcType MakeNullable(IRpcType innerType)
         {
-            return new UnionRpcType(new[] { PrimitiveTypes.Null, innerType }, innerType.ClrType);
+            return new UnionRpcType(new[]
+            {
+                PrimitiveTypes.Null, innerType
+            }, innerType.ClrType);
         }
 
         public RpcModel Build()
