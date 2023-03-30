@@ -5,19 +5,20 @@ using System.Text;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
+using CookeRpc.AspNetCore.Utils;
 
 namespace CookeRpc.AspNetCore.Model
 {
     public class RpcModelTypeBinder : ITypeBinder
     {
         private readonly RpcModel _rpcModel;
-        private readonly Dictionary<string, INamedRpcType> _typesByName;
+        private readonly Dictionary<string, List<INamedRpcType>> _typesByName;
         private readonly Dictionary<Type, INamedRpcType> _typesByClrType;
 
         public RpcModelTypeBinder(RpcModel rpcModel)
         {
             _rpcModel = rpcModel;
-            _typesByName = rpcModel.Types.ToDictionary(x => x.Name, x => x);
+            _typesByName = rpcModel.Types.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.ToList());
             _typesByClrType = rpcModel.Types.Where(IsObjectType).ToDictionary(x => x.ClrType, x => x);
             bool IsObjectType(INamedRpcType x) => x is ObjectRpcType;
         }
@@ -52,9 +53,13 @@ namespace CookeRpc.AspNetCore.Model
 
         private Type Resolve(JsonRpcTypeRef refDataType, Type targetType)
         {
-            var rpcType = _typesByName.GetValueOrDefault(refDataType.Name) ??
-                          throw CreateResolveException();
-            var clrDataType = rpcType.ClrType;
+            var rpcTypes = _typesByName.GetValueOrDefault(refDataType.Name) ?? throw CreateResolveException();
+
+
+            var clrDataType = rpcTypes.Count == 1
+                ? rpcTypes.First().ClrType
+                : rpcTypes.Select(x => x.ClrType).FirstOrDefault(x => x.IsAssignableTo(targetType)) ??
+                  throw CreateResolveException();
 
             // Generic
             if (clrDataType.IsGenericTypeDefinition || targetType.IsGenericTypeDefinition) {
@@ -68,7 +73,8 @@ namespace CookeRpc.AspNetCore.Model
 
             InvalidOperationException CreateResolveException()
             {
-                return new InvalidOperationException($"Failed to resolve type {refDataType.Name} to target type {targetType.Name}");
+                return new InvalidOperationException(
+                    $"Failed to resolve type {refDataType.Name} to target type {targetType.Name}");
             }
         }
 
