@@ -89,6 +89,10 @@ namespace CookeRpc.AspNetCore.Model
                         try {
                             argument = await context.Invocation.ConsumeArgument(parameterInfo.ParameterType);
                         }
+                        catch (TargetInvocationException ex) when (ex.InnerException is ArgumentException argumentException) {
+                            return new RpcError(context.Invocation.Id, Constants.ErrorCodes.BadRequest,
+                                $"Invalid value for parameter '{parameterInfo.Name}': {argumentException.Message}", ex);
+                        }
                         catch (ArgumentException ex) {
                             return new RpcError(context.Invocation.Id, Constants.ErrorCodes.BadRequest,
                                 $"Invalid value for parameter '{parameterInfo.Name}': {ex.Message}", ex);
