@@ -14,7 +14,7 @@
         <RepositoryType>git</RepositoryType>
         <PackageTags>RPC, API</PackageTags>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <PackageVersion>3.0.1</PackageVersion>
+        <PackageVersion>4.0.0</PackageVersion>
         <LangVersion>11</LangVersion>
     </PropertyGroup>
 
