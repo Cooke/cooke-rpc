@@ -57,82 +57,80 @@ namespace CookeRpc.AspNetCore
         {
             await context.Response.WriteAsJsonAsync(new
             {
-                types = _model.TypesDefinitions.Select(x => (object?)(x switch
-                {
-                    RpcEnumDefinition e => new
-                    {
-                        kind = "enum",
-                        x.Name,
-                        members = e.Members.Select(m => new
-                        {
-                            name = m.Name,
-                            value = m.Value
-                        })
-                    },
-                    RpcUnionDefinition union => new
-                    {
-                        kind = "union",
-                        x.Name,
-                        types = union.Types.Select(GetIntrospectionType)
-                    },
-                    RpcInterfaceDefinition inter => new
-                    {
-                        kind = "interface",
-                        x.Name,
-                        properties = inter.Properties.Count == 0
-                            ? null
-                            : inter.Properties.Select(GetIntrospectionProperty),
-                        extends = inter.Extends.Count == 0 ? null : inter.Extends.Select(GetIntrospectionType)
-                    },
-                    RpcObjectDefinition obj => new
-                    {
-                        kind = "object",
-                        x.Name,
-                        properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
-                        implements = obj.Implements.Count == 0 ? null : obj.Implements.Select(GetIntrospectionType)
-                    },
-                    RpcPrimitiveTypeDefinition => null,
-                    _ => throw new ArgumentOutOfRangeException(nameof(x))
-                })).Where(x => x is not null),
+                types = _model.Types.Select(GetTypeDeclaration),
                 services = _model.Services.Select(x => new
                 {
                     x.Name,
                     procedures = x.Procedures.Select(p => new
                     {
                         p.Name,
-                        returnType = GetIntrospectionType(p.ReturnType),
+                        returnType = GetTypeUsage(p.ReturnType),
                         parameters = p.Parameters.Select(pa => new
                         {
                             pa.Name,
-                            type = GetIntrospectionType(pa.Type)
+                            type = GetTypeUsage(pa.Type)
                         })
                     })
                 })
             }, _introspectionSerializerOptions);
 
-            static object GetIntrospectionType(RpcType t) =>
-                t switch
+            static object GetTypeUsage(IRpcType type) =>
+                type switch
                 {
-                    RpcUnionType unionType => new
+                    INamedRpcType refType => refType.Name,
+                    RegexRestrictedStringRpcType regexString => new
+                    {
+                        kind = "regex-restricted-string",
+                        regex = regexString.Pattern
+                    },
+                    UnionRpcType unionType => new
                     {
                         kind = "union",
-                        types = unionType.Types.Select(GetIntrospectionType)
+                        types = unionType.Types.Select(GetTypeUsage)
                     },
-                    RpcGenericType genericType => new
+                    GenericRpcType genericType => new
                     {
                         kind = "generic",
-                        name = genericType.Name,
-                        typeArguments = genericType.TypeArguments.Select(GetIntrospectionType)
+                        name = genericType.TypeDefinition.Name,
+                        typeArguments = genericType.TypeArguments.Select(GetTypeUsage)
                     },
-                    RpcRefType { Name: { } } refType => refType.Name,
-                    _ => throw new NotSupportedException()
+                    _ => throw new ArgumentOutOfRangeException(nameof(type))
+                };
+
+            static object GetTypeDeclaration(INamedRpcType type) =>
+                type switch
+                {
+                    PrimitiveRpcType primType => new
+                    {
+                        primType.Name,
+                        kind = "primitive",
+                    },
+                    EnumRpcType e => new
+                    {
+                        name = e.Name,
+                        kind = "enum",
+                        members = e.Members.Select(m => new
+                        {
+                            name = m.Name,
+                            value = m.Value
+                        })
+                    },
+                    ObjectRpcType obj => new
+                    {
+                        name = obj.Name,
+                        kind = "object",
+                        properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
+                        extends = obj.Extends.Count == 0 ? null : obj.Extends.Select(GetTypeUsage),
+                        @abstract = obj.IsAbstract
+                    },
+                    _ => throw new ArgumentOutOfRangeException(nameof(type))
                 };
 
             static object GetIntrospectionProperty(RpcPropertyDefinition p) =>
                 new
                 {
                     p.Name,
-                    Type = GetIntrospectionType(p.Type),
+                    Type = GetTypeUsage(p.Type),
                     optional = (bool?)(p.IsOptional ? true : null)
                 };
         }

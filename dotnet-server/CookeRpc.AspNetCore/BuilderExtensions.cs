@@ -1,12 +1,11 @@
 using System;
 using System.Linq;
-using System.Net.Http;
 using System.Reflection;
+using System.Text.Json;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.JsonSerialization;
 using CookeRpc.AspNetCore.Model;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
-using CookeRpc.AspNetCore.Model.Types;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,32 +21,28 @@ namespace CookeRpc.AspNetCore
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, string path = "/rpc")
         {
-            var model = new RpcModel(new RpcModelOptions { ContextType = typeof(HttpRpcContext) });
+            var model = new RpcModelBuilder(new RpcModelBuilderOptions { ContextType = typeof(HttpRpcContext) });
             model.AddRpcServicesByAttribute();
-            return UseRpc(app, model, path);
+            return UseRpc(app, model.Build(), path);
         }
 
-        public static RpcModel AddRpcServicesByAttribute(this RpcModel model)
+        public static RpcModelBuilder AddRpcServicesByAttribute(this RpcModelBuilder model)
         {
             return model.AddRpcServicesByAttribute<RpcServiceAttribute>();
         }
 
-        public static RpcType MapType<T>(this RpcModel model)
+        public static IRpcType AddType<T>(this RpcModelBuilder model)
         {
             return model.MapType(typeof(T));
         }
 
-        public static RpcType MapType<T>(this RpcModel model, RpcType rpcType)
-        {
-            return model.MapType(typeof(T), rpcType);
-        }
+        // public static RpcType AddType<T>(this RpcModelBuilder model, RpcType rpcType)
+        // {
+        //     return model.AddType(typeof(T), rpcType);
+        // }
 
-        public static RpcType MapType<T>(this RpcModel model, RpcTypeDefinition rpcTypeDefinition)
-        {
-            return model.MapType(typeof(T), rpcTypeDefinition);
-        }
-
-        public static RpcModel AddRpcServicesByAttribute<TAttribute>(this RpcModel model) where TAttribute : Attribute
+        public static RpcModelBuilder AddRpcServicesByAttribute<TAttribute>(this RpcModelBuilder model)
+            where TAttribute : Attribute
         {
             var controllerTypes = Assembly.GetCallingAssembly().GetTypes()
                 .Concat(Assembly.GetEntryAssembly()?.GetTypes() ?? ArraySegment<Type>.Empty)
@@ -58,6 +53,15 @@ namespace CookeRpc.AspNetCore
             }
 
             return model;
+        }
+
+        public static IApplicationBuilder UseRpc(this IApplicationBuilder app,
+            RpcModel model,
+            Action<JsonSerializerOptions> configureSerializer,
+            string path = "/rpc")
+        {
+            var serializer = new SystemTextJsonRpcSerializer(new RpcModelTypeBinder(model), configureSerializer);
+            return UseRpc(app, model, serializer, path);
         }
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, RpcModel model, string path = "/rpc")

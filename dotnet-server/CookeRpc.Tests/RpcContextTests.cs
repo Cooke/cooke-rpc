@@ -16,7 +16,7 @@ namespace CookeRpc.Tests
         [Fact]
         public void Shall_Be_Able_To_Add_HttpRpcContext_Compatible_Controllers_To_RpcModel_For_HttpRpcContext()
         {
-            var httpRpcModel = new RpcModel(new() {ContextType = typeof(HttpRpcContext)});
+            var httpRpcModel = new RpcModelBuilder(new() {ContextType = typeof(HttpRpcContext)});
             httpRpcModel.AddService(typeof(HttpContextTestController));
             httpRpcModel.AddService(typeof(RpcContextTestController));
         }
@@ -24,7 +24,7 @@ namespace CookeRpc.Tests
         [Fact]
         public void Shall_Be_Able_To_Add_CustomRpcContext_Compatible_Controllers_To_RpcModel_For_CustomRpcContext()
         {
-            var httpRpcModel = new RpcModel(new() {ContextType = typeof(CustomRpcContext)});
+            var httpRpcModel = new RpcModelBuilder(new() {ContextType = typeof(CustomRpcContext)});
             httpRpcModel.AddService(typeof(CustomContextTestController));
             httpRpcModel.AddService(typeof(RpcContextTestController));
         }
@@ -32,23 +32,24 @@ namespace CookeRpc.Tests
         [Fact]
         public void Shall_Not_Be_Able_To_Add_HttpRpcContext_Compatible_Controllers_To_RpcModel_For_CustomRpcContext()
         {
-            var httpRpcModel = new RpcModel(new() {ContextType = typeof(CustomRpcContext)});
+            var httpRpcModel = new RpcModelBuilder(new() {ContextType = typeof(CustomRpcContext)});
             Assert.Throws<ArgumentException>(() => httpRpcModel.AddService(typeof(HttpContextTestController)));
         }
 
         [Fact]
         public void Shall_Be_Able_To_Add_CustomRpcContext_Compatible_Controllers_To_RpcModel_For_HttpRpcContext()
         {
-            var httpRpcModel = new RpcModel(new() {ContextType = typeof(HttpRpcContext)});
+            var httpRpcModel = new RpcModelBuilder(new() {ContextType = typeof(HttpRpcContext)});
             Assert.Throws<ArgumentException>(() => httpRpcModel.AddService(typeof(CustomContextTestController)));
         }
         
         [Fact]
         public void Shall_Be_Able_To_Use_Custom_Context()
         {
-            var httpRpcModel = new RpcModel(new() {ContextType = typeof(CustomRpcContext)});
-            httpRpcModel.AddService(typeof(CustomContextTestController));
-            httpRpcModel.AddService(typeof(RpcContextTestController));
+            var httpRpcModelBuilder = new RpcModelBuilder(new() {ContextType = typeof(CustomRpcContext)});
+            httpRpcModelBuilder.AddService(typeof(CustomContextTestController));
+            httpRpcModelBuilder.AddService(typeof(RpcContextTestController));
+            var httpRpcModel = httpRpcModelBuilder.Build();
 
             var service = httpRpcModel.Services.First(x => x.Name == "CustomContextTestController");
             var proc = service.Procedures.First();

@@ -53,6 +53,13 @@ namespace CookeRpc.AspNetCore.Utils
                 .Concat(fieldInfos.Select(x => x.GetValue(null)).OfType<TProperty>());
         }
 
+        public static IEnumerable<MemberInfo> GetAllStaticProperties(Type t)
+        {
+            var propertyInfos = t.GetProperties(BindingFlags.Static | BindingFlags.Public);
+            var fieldInfos = t.GetFields(BindingFlags.Static | BindingFlags.Public);
+            return propertyInfos.Cast<MemberInfo>().AsEnumerable().Concat(fieldInfos.AsEnumerable());
+        }
+
         public static bool IsNullable(MemberInfo memberInfo)
         {
             return memberInfo switch
@@ -104,12 +111,12 @@ namespace CookeRpc.AspNetCore.Utils
         public static bool IsNullable(ParameterInfo parameter) =>
             IsNullableHelper(parameter.ParameterType, parameter.Member, parameter.CustomAttributes);
 
-        private static bool IsNullableHelper(Type memberType,
-            MemberInfo? declaringType,
+        private static bool IsNullableHelper(Type type,
+            MemberInfo? member,
             IEnumerable<CustomAttributeData> customAttributes)
         {
-            if (memberType.IsValueType)
-                return Nullable.GetUnderlyingType(memberType) != null;
+            if (type.IsValueType)
+                return Nullable.GetUnderlyingType(type) != null;
 
             var nullable = customAttributes.FirstOrDefault(x =>
                 x.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute");
@@ -130,9 +137,9 @@ namespace CookeRpc.AspNetCore.Utils
                 }
             }
 
-            for (var type = declaringType; type != null; type = type.DeclaringType)
+            for (var declaringType = member; declaringType != null; declaringType = declaringType.DeclaringType)
             {
-                var context = type.CustomAttributes.FirstOrDefault(x =>
+                var context = declaringType.CustomAttributes.FirstOrDefault(x =>
                     x.AttributeType.FullName == "System.Runtime.CompilerServices.NullableContextAttribute");
                 if (context != null && context.ConstructorArguments.Count == 1 &&
                     context.ConstructorArguments[0].ArgumentType == typeof(byte))

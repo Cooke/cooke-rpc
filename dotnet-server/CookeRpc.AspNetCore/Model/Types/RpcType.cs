@@ -1,7 +1,9 @@
-﻿namespace CookeRpc.AspNetCore.Model.Types
+﻿using System;
+
+namespace CookeRpc.AspNetCore.Model.TypeDefinitions
 {
-    public abstract class RpcType
+    public interface IRpcType
     {
-        public abstract string? Name { get; }
+        Type ClrType { get; }
     }
 }

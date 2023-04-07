@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using CookeRpc.AspNetCore;
 using CookeRpc.AspNetCore.Model;
@@ -22,39 +24,54 @@ namespace CookeRpc.Tests
         {
             _testOutputHelper = testOutputHelper;
 
-            RpcModel model = new(new RpcModelOptions());
-            model.AddService(typeof(TestController));
+            RpcModelBuilder modelBuilder = new(new RpcModelBuilderOptions());
+            modelBuilder.AddService(typeof(TestController));
 
             _host = Host.CreateDefaultBuilder().ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.ConfigureServices(services => services.AddRpc());
-                webBuilder.Configure(app => { app.UseRpc(model); });
+                webBuilder.Configure(app => { app.UseRpc(modelBuilder.Build()); });
                 webBuilder.UseTestServer();
             }).Start();
         }
 
         [Fact]
-        public async Task Invoke()
+        public async Task Invoke_Shall_Work()
         {
             var client = _host.GetTestClient();
-            var response = await client.PostAsJsonAsync("/rpc",
-                new object[] {new {Id = "123", Service = "TestController", Proc = "Echo"}, "Hello!"});
+            var response = await client.PostAsJsonAsync("/rpc", new object[]
+            {
+                new
+                {
+                    Id = "123",
+                    Service = "TestController",
+                    Proc = "Echo"
+                },
+                "Hello!"
+            });
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},\"Hello!\"]", await response.Content.ReadAsStringAsync());
         }
-        
+
         [Fact]
         public async Task SerializeEnumResult()
         {
             var client = _host.GetTestClient();
-            var response = await client.PostAsJsonAsync("/rpc",
-                new object[] {new {Id = "123", Service = "TestController", Proc = "Ask"}});
+            var response = await client.PostAsJsonAsync("/rpc", new object[]
+            {
+                new
+                {
+                    Id = "123",
+                    Service = "TestController",
+                    Proc = "Ask"
+                }
+            });
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},\"No\"]", await response.Content.ReadAsStringAsync());
         }
-        
+
         [Fact]
         public async Task InvokeAdvanced()
         {
@@ -62,7 +79,7 @@ namespace CookeRpc.Tests
             var response = await client.PostAsync("/rpc",
                 new StringContent(
                     @"[{""id"":""123"",""service"":""TestController"",""proc"":""EchoFruit""},{""$type"":""Banana""}]"));
-            
+
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\"},{\"$type\":\"Banana\"}]", await response.Content.ReadAsStringAsync());
@@ -75,6 +92,36 @@ namespace CookeRpc.Tests
             var client = _host.GetTestClient();
             var metadata = await client.GetFromJsonAsync<JsonDocument>("/rpc/introspection");
             Assert.NotNull(metadata);
+            _testOutputHelper.WriteLine(metadata!.RootElement.ToString());
+        }
+
+        [Fact]
+        public async Task Invocation_With_Invalid_Type_Shall_Give_Bad_Request()
+        {
+            var client = _host.GetTestClient();
+            var response = await Invoke(client, "TestController", "SetEmail", "invalid_email");
+            response.EnsureSuccessStatusCode();
+
+            Assert.Equal(
+                "[{\"id\":\"123\",\"errorCode\":\"bad_request\",\"errorMessage\":\"Invalid value for parameter \\u0027email\\u0027: Invalid email\"}]",
+                await response.Content.ReadAsStringAsync());
+        }
+
+        private static async Task<HttpResponseMessage> Invoke(HttpClient client,
+            string service,
+            string proc,
+            params object[] args)
+        {
+            var response = await client.PostAsJsonAsync("/rpc", new object[]
+            {
+                new
+                {
+                    Id = "123",
+                    Service = service,
+                    Proc = proc
+                },
+            }.Concat(args));
+            return response;
         }
 
         [RpcService]
@@ -85,8 +132,34 @@ namespace CookeRpc.Tests
             public TestModel Fetch() => new();
 
             public Fruit EchoFruit(Fruit fruit) => fruit;
-            
+
             public YesOrNo Ask() => YesOrNo.No;
+
+            public void SetEmail(Email email)
+            {
+            }
+        }
+
+        [RpcType(Kind = RpcTypeKind.Primitive)]
+        [JsonConverter(typeof(EmailConverter))]
+        public record Email(string Value)
+        {
+            public string Value { get; } = Value.Contains("@") ? Value : throw new ArgumentException("Invalid email");
+        }
+
+        public class EmailConverter : JsonConverter<RpcTests.Email>
+        {
+            public override RpcTests.Email? Read(ref Utf8JsonReader reader,
+                Type typeToConvert,
+                JsonSerializerOptions options)
+            {
+                return new RpcTests.Email(reader.GetString() ?? throw new JsonException("Email may not be null"));
+            }
+
+            public override void Write(Utf8JsonWriter writer, RpcTests.Email value, JsonSerializerOptions options)
+            {
+                writer.WriteStringValue(value.Value);
+            }
         }
 
         public void Dispose()

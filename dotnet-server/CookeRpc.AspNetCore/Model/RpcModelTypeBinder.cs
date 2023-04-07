@@ -5,27 +5,22 @@ using System.Text;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
+using CookeRpc.AspNetCore.Utils;
 
 namespace CookeRpc.AspNetCore.Model
 {
     public class RpcModelTypeBinder : ITypeBinder
     {
         private readonly RpcModel _rpcModel;
-        private readonly Dictionary<string, RpcType> _typesByName;
-        private readonly Dictionary<Type, RpcTypeDefinition> _typesByClrType;
+        private readonly Dictionary<string, List<INamedRpcType>> _typesByName;
+        private readonly Dictionary<Type, INamedRpcType> _typesByClrType;
 
         public RpcModelTypeBinder(RpcModel rpcModel)
         {
             _rpcModel = rpcModel;
-            _typesByName = rpcModel.TypesDefinitions.Where(IsConcrete).GroupBy(x => x.Name).ToDictionary(x => x.Key,
-                x => (RpcType)new RpcRefType(x.First()));
-            _typesByClrType = rpcModel.TypesDefinitions.Where(IsConcrete).GroupBy(x => x.ClrType)
-                .ToDictionary(x => x.Key, x => x.First());
-
-            bool IsConcrete(RpcTypeDefinition x)
-            {
-                return x is not (RpcInterfaceDefinition or RpcUnionDefinition);
-            }
+            _typesByName = rpcModel.Types.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.ToList());
+            _typesByClrType = rpcModel.Types.Where(IsObjectType).ToDictionary(x => x.ClrType, x => x);
+            bool IsObjectType(INamedRpcType x) => x is ObjectRpcType;
         }
 
         public string GetName(Type type)
@@ -43,8 +38,8 @@ namespace CookeRpc.AspNetCore.Model
 
         public bool ShouldResolveType(Type targetType)
         {
-            return _rpcModel.TypesDefinitions.Count(x => x.ClrType.IsAssignableTo(targetType)) > 1 ||
-                   _rpcModel.TypesDefinitions.Count(x => x.ClrType.IsAssignableFrom(targetType)) > 1;
+            return _rpcModel.Types.Count(x => x.ClrType.IsAssignableTo(targetType)) > 1 ||
+                   _rpcModel.Types.Count(x => x.ClrType.IsAssignableFrom(targetType)) > 1;
         }
 
         private JsonRpcTypeRef Parse(string typeName)
@@ -58,19 +53,13 @@ namespace CookeRpc.AspNetCore.Model
 
         private Type Resolve(JsonRpcTypeRef refDataType, Type targetType)
         {
-            var rpcDataType = _typesByName.GetValueOrDefault(refDataType.Name) ??
-                              throw CreateResolveException();
-            var clrDataType = rpcDataType switch
-            {
-                RpcRefType customType => customType.TypeDefinition.ClrType,
-                RpcGenericType genericType => genericType switch
-                {
-                    var x when x.InnerType == PrimitiveTypes.Array => typeof(List<>),
-                    var x when x.InnerType == PrimitiveTypes.Map => typeof(Dictionary<,>),
-                    _ => throw CreateResolveException()
-                },
-                _ => throw CreateResolveException()
-            };
+            var rpcTypes = _typesByName.GetValueOrDefault(refDataType.Name) ?? throw CreateResolveException();
+
+
+            var clrDataType = rpcTypes.Count == 1
+                ? rpcTypes.First().ClrType
+                : rpcTypes.Select(x => x.ClrType).FirstOrDefault(x => x.IsAssignableTo(targetType)) ??
+                  throw CreateResolveException();
 
             // Generic
             if (clrDataType.IsGenericTypeDefinition || targetType.IsGenericTypeDefinition) {
@@ -84,7 +73,8 @@ namespace CookeRpc.AspNetCore.Model
 
             InvalidOperationException CreateResolveException()
             {
-                return new InvalidOperationException($"Failed to resolve type {refDataType.Name} to target type {targetType.Name}");
+                return new InvalidOperationException(
+                    $"Failed to resolve type {refDataType.Name} to target type {targetType.Name}");
             }
         }
 
@@ -116,21 +106,21 @@ namespace CookeRpc.AspNetCore.Model
             return new JsonRpcTypeRef(name, args);
         }
 
-        private string SerializeType(RpcType rpcType)
+        private string SerializeType(IRpcType rpcType)
         {
             switch (rpcType) {
-                case RpcRefType:
-                    return rpcType.Name ?? throw new InvalidOperationException();
+                case PrimitiveRpcType primitiveType:
+                    return primitiveType.Name ?? throw new InvalidOperationException();
 
-                case RpcGenericType standardType:
-                    if (!standardType.TypeArguments.Any()) {
-                        return standardType.Name ?? throw new InvalidOperationException();
+                case GenericRpcType genericType:
+                    if (!genericType.TypeArguments.Any()) {
+                        return genericType.TypeDefinition.Name ?? throw new InvalidOperationException();
                     }
 
                     var sb = new StringBuilder();
-                    sb.Append(standardType.Name);
+                    sb.Append(genericType.TypeDefinition.Name);
                     sb.Append('<');
-                    sb.AppendJoin(',', standardType.TypeArguments.Select(SerializeType));
+                    sb.AppendJoin(',', genericType.TypeArguments.Select(SerializeType));
                     sb.Append('>');
                     return sb.ToString();
 

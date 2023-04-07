@@ -1,6 +1,6 @@
 {
   "name": "cooke-rpc-react",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Cooke RPC react hooks",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -17,7 +17,7 @@
     "react": "^17.0.1"
   },
   "dependencies": {
-    "cooke-rpc": "^1.0.4"
+    "cooke-rpc": "^1.0.7"
   },
   "scripts": {
     "prepublish": "tsc"
