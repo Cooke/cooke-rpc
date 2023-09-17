@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
+using System.Text.RegularExpressions;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
@@ -51,8 +52,8 @@ namespace CookeRpc.AspNetCore.Model
             Char.ToLower(memberInfo.Name[0]) + memberInfo.Name.Substring(1);
 
         public Func<Type, string> TypeNameFormatter { get; init; } = type =>
-            type.GetCustomAttribute<RpcTypeAttribute>()?.Name ??
-            (type.IsInterface && type.Name.StartsWith("I") ? type.Name.Substring(1) : type.Name);
+            type.GetCustomAttribute<RpcTypeAttribute>()?.Name ?? Regex.Replace(
+                (type.IsInterface && type.Name.StartsWith("I") ? type.Name.Substring(1) : type.Name), "`[0-9]+", "");
 
         public BindingFlags MemberBindingFilter { get; init; } = BindingFlags.Public | BindingFlags.Instance;
 

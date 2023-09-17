@@ -100,7 +100,13 @@ namespace CookeRpc.AspNetCore.Model
             }
 
             if (clrType.IsGenericType && clrType.GetGenericTypeDefinition() != clrType) {
-                return MapType(clrType.GetGenericTypeDefinition());
+                var definitionType = MapType(clrType.GetGenericTypeDefinition());
+                if (definitionType is not INamedRpcType namedRpcType) {
+                    throw new NotSupportedException("Generic type definitions must map to a named rpc type");
+                }
+                
+                var typeArguments = clrType.GenericTypeArguments.Select(MapType).ToList();
+                return new GenericRpcType(clrType, namedRpcType, typeArguments);
             }
 
             if (clrType.IsClass || clrType.IsInterface) {
@@ -176,6 +182,7 @@ namespace CookeRpc.AspNetCore.Model
             string typeName = _options.TypeNameFormatter(clrType);
             var props = new List<RpcPropertyDefinition>();
             var extends = new List<IRpcType>(); // Can only be reffed object type or generic type
+            var typeArguments = clrType.Get
             var type = new ObjectRpcType(clrType, props, extends, clrType.IsAbstract || clrType.IsInterface, typeName);
             _mappings.Add(clrType, type);
             var rpcType = type;

@@ -4,8 +4,6 @@ using System.Linq;
 using System.Text;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
-using CookeRpc.AspNetCore.Model.Types;
-using CookeRpc.AspNetCore.Utils;
 
 namespace CookeRpc.AspNetCore.Model
 {
@@ -25,6 +23,15 @@ namespace CookeRpc.AspNetCore.Model
 
         public string GetName(Type type)
         {
+            if (type.IsGenericType) {
+                var sb = new StringBuilder();
+                sb.Append(GetName(type.GetGenericTypeDefinition()));
+                sb.Append('<');
+                sb.AppendJoin(',', type.GetGenericArguments().Select(GetName));
+                sb.Append('>');
+                return sb.ToString();
+            }
+
             // Theoretically this may be insufficient for a generic type hierarchy  
             var typeDefinition = _typesByClrType.GetValueOrDefault(type);
             if (typeDefinition == null) {
@@ -104,29 +111,6 @@ namespace CookeRpc.AspNetCore.Model
             }
 
             return new JsonRpcTypeRef(name, args);
-        }
-
-        private string SerializeType(IRpcType rpcType)
-        {
-            switch (rpcType) {
-                case PrimitiveRpcType primitiveType:
-                    return primitiveType.Name ?? throw new InvalidOperationException();
-
-                case GenericRpcType genericType:
-                    if (!genericType.TypeArguments.Any()) {
-                        return genericType.TypeDefinition.Name ?? throw new InvalidOperationException();
-                    }
-
-                    var sb = new StringBuilder();
-                    sb.Append(genericType.TypeDefinition.Name);
-                    sb.Append('<');
-                    sb.AppendJoin(',', genericType.TypeArguments.Select(SerializeType));
-                    sb.Append('>');
-                    return sb.ToString();
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(rpcType));
-            }
         }
     }
 }
