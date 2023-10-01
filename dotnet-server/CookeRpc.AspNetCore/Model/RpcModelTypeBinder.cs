@@ -23,12 +23,12 @@ namespace CookeRpc.AspNetCore.Model
 
         public string GetName(Type type)
         {
-            if (type.IsGenericType) {
+            if (type.IsGenericType && !type.IsTypeDefinition) {
                 var sb = new StringBuilder();
                 sb.Append(GetName(type.GetGenericTypeDefinition()));
-                sb.Append('<');
-                sb.AppendJoin(',', type.GetGenericArguments().Select(GetName));
-                sb.Append('>');
+                // sb.Append('<');
+                // sb.AppendJoin(',', type.GetGenericArguments().Select(GetName));
+                // sb.Append('>');
                 return sb.ToString();
             }
 

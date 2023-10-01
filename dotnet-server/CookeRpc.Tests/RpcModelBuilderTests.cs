@@ -14,13 +14,14 @@ namespace CookeRpc.Tests
     public class RpcModelBuilderTests
     {
         private readonly RpcServiceModel _serviceModel;
+        private RpcModel _model;
 
         public RpcModelBuilderTests()
         {
             var builder = new RpcModelBuilder(new RpcModelBuilderOptions());
             builder.AddService(typeof(TestController));
-            var model = builder.Build();
-            _serviceModel = model.Services.First();
+            _model = builder.Build();
+            _serviceModel = _model.Services.First();
         }
 
         [Fact]
@@ -75,38 +76,23 @@ namespace CookeRpc.Tests
         }
 
         [Fact]
-        public void Parameter_Shall_Support_RegexRestrictedStringRpcTypeAttribute()
-        {
-            var proc = _serviceModel.Procedures.Single(x => x.Name == "SetRegex");
-            Assert.Equal(new RegexRestrictedStringRpcType("abc.+"), proc.Parameters.First().Type);
-        }
-
-        [Fact]
-        public void Property_Shall_Support_RegexRestrictedStringRpcTypeAttribute()
-        {
-            var proc = _serviceModel.Procedures.Single(x => x.Name == "SetInputWithRegex");
-            Assert.Equal(new RegexRestrictedStringRpcType(".{2,4}"),
-                ((ObjectRpcType)proc.Parameters.First().Type).Properties.First().Type);
-        }
-
-        [Fact]
-        public void Class_Shall_Support_RegexRestrictedStringRpcTypeAttribute()
-        {
-            var proc = _serviceModel.Procedures.Single(x => x.Name == "SetInputOfRegexClass");
-            Assert.Equal(new RegexRestrictedStringRpcType(".{2,4}"), proc.Parameters.First().Type);
-        }
-
-        [Fact]
         void Generic_Support()
         {
             var proc = _serviceModel.Procedures.Single(x => x.Name == "GetGeneric");
             var returnType = Assert.IsType<GenericRpcType>(proc.ReturnType);
-            Assert.Equal("Generic", returnType.TypeDefinition.Name);
+            Assert.Equal(PrimitiveTypes.Number, returnType.TypeArguments.Single());
+            var definition = Assert.IsType<ObjectRpcType>(returnType.TypeDefinition);
+            Assert.Equal("Generic", definition.Name);
+            Assert.Equal(new TypeParameterRpcType("TArg", typeof(Generic<>).GetGenericArguments().Single()),
+                definition.TypeParameters.Single());
+
+            var typeBasedOnGeneric = _model.Types.Single(x => x.Name.Equals("TypeBasedOnGeneric"));
+            Assert.NotNull(typeBasedOnGeneric);
         }
 
         private static void AssertNullable(IRpcType type)
         {
-            Assert.Contains(Assert.IsType<UnionRpcType>(type).Types, t => t is PrimitiveRpcType { Name: "null" });
+            Assert.Contains(Assert.IsType<UnionRpcType>(type).Types, t => t is PrimitiveRpcType {Name: "null"});
         }
 
         [RpcService]
@@ -132,18 +118,6 @@ namespace CookeRpc.Tests
             {
             }
 
-            public void SetRegex([RegexRestrictedStringRpcType("abc.+")] string abcString)
-            {
-            }
-
-            public void SetInputWithRegex(InputWithRegex input)
-            {
-            }
-
-            public void SetInputOfRegexClass(InputAsRegex input)
-            {
-            }
-
             public Generic<double> GetGeneric() => new(0);
         }
 
@@ -163,12 +137,8 @@ namespace CookeRpc.Tests
         [RpcType(Kind = RpcTypeKind.Primitive)]
         public record EmailAddress(String Value);
 
-        public record InputWithRegex([property: RegexRestrictedStringRpcType(".{2,4}")]
-            String Value);
-
-        [RegexRestrictedStringRpcType(".{2,4}")]
-        public record InputAsRegex(String Value);
-
         public record Generic<TArg>(TArg Arg);
+
+        public record TypeBasedOnGeneric(int v) : Generic<int>(v);
     }
 }

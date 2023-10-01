@@ -88,78 +88,38 @@ function generateRpcTs(meta) {
     } else if (type.kind === "object") {
       if (type.extends && type.extends.length > 0) {
         discriminatedTypes.add(type.name);
+        for (const extendedType of type.extends) {
+          discriminatedTypes.add(
+            typeof extendedType === "object" ? extendedType.name : extendedType
+          );
+        }
       }
     }
   }
 
-  var abstractUnions = new Set();
+  var typesByName = new Map();
   for (const type of meta.types) {
-    if (
-      type.kind === "object" &&
-      type.abstract &&
-      (!type.properties || type.properties.length === 0)
-    ) {
-      abstractUnions.add(type.name);
-    }
+    typesByName.set(type.name, type);
   }
 
-  var abstractTypes = new Set();
-  for (const type of meta.types) {
-    if (type.kind === "object" && type.abstract) {
-      abstractTypes.add(type.name);
-    }
+  function isAbstract(typeName) {
+    return !!typesByName.get(typeName)?.abstract;
   }
 
-  function formatTypeUsage(type) {
-    if (typeof type === "string") {
-      return type;
+  function isBase(typeName) {
+    var type = typesByName.get(typeName);
+    if (type.kind !== "object") {
+      return false;
     }
 
-    switch (type.kind) {
-      case "regex-restricted-string":
-        return "string";
+    var extenders = meta.types.filter(
+      (x) =>
+        x.extends &&
+        (x.extends.includes(typeName) ||
+          x.extends.map((x) => x.name).includes(typeName))
+    );
 
-      case "union":
-        if (type.types.length === 0) {
-          return "never";
-        }
-
-        return type.types.map(formatTypeUsage).join(" | ");
-
-      case "generic":
-        switch (type.name) {
-          case "array":
-            return `Array<${type.typeArguments
-              .map(formatTypeUsage)
-              .join(",")}>`;
-
-          case "tuple":
-            return `[${type.typeArguments.map(formatTypeUsage).join(",")}]`;
-
-          case "optional":
-            return `${type.typeArguments
-              .map(formatTypeUsage)
-              .join(",")} | undefined`;
-
-          case "map": {
-            const keyType = formatTypeUsage(type.typeArguments[0]);
-            const valueType = formatTypeUsage(type.typeArguments[1]);
-            if (keyType === "string" || keyType === "number") {
-              return `{[key: ${keyType}]: ${valueType}}`;
-            } else {
-              return `{[key in ${keyType}]?: ${valueType}}`;
-            }
-          }
-
-          default:
-            return `${type.name}<${type.typeArguments
-              .map(formatTypeUsage)
-              .join(",")}>`;
-        }
-
-      default:
-        return type.name;
-    }
+    return extenders.length > 0;
   }
 
   function writeProperties(stream, properties) {
@@ -171,9 +131,6 @@ function generateRpcTs(meta) {
       properties
         .map(
           (p) =>
-            (p.type.kind === "regex-restricted-string"
-              ? `  /** Regex: ${p.type.regex} */\n`
-              : "") +
             `  ${p.name}${
               (p.type.kind === "generic" && p.type.name === "optional") ||
               p.optional
@@ -188,13 +145,25 @@ function generateRpcTs(meta) {
   function writeObject(stream, type, name) {
     stream.write(`export interface ${name} `);
 
-    var actualExtends =
-      type.extends?.filter((x) => !abstractUnions.has(x)) ?? [];
-    if (actualExtends.length > 0) {
+    if (type.typeParameters && type.typeParameters.length > 0) {
+      stream.write("<");
+      stream.write(type.typeParameters.join(", "));
+      stream.write("> ");
+    }
+
+    const actualExtends = type.extends?.filter((x) =>
+      typeof x === "object" ? isBase(x.name) : isBase(x)
+    );
+    if (actualExtends && actualExtends.length > 0) {
       stream.write("extends ");
       stream.write(
         actualExtends
-          .map((x) => (abstractTypes.has(x) ? x + "$Base" : x))
+          .map((x) =>
+            typeof x === "object"
+              ? `${formatExtendType(x.name)}<${x.typeArguments.join(", ")}>`
+              : formatExtendType(x)
+          )
+
           .join(", ")
       );
       stream.write(" ");
@@ -211,6 +180,15 @@ function generateRpcTs(meta) {
 
     writeProperties(stream, type.properties);
     stream.write("\n}");
+
+    function formatExtendType(typeName) {
+      const output = `${typeName}${isBase(typeName) ? "$Base" : ""}`;
+      if (!isAbstract(typeName)) {
+        return `Omit<${output}, "$type">`;
+      }
+
+      return output;
+    }
   }
 
   for (const type of meta.types) {
@@ -220,20 +198,33 @@ function generateRpcTs(meta) {
       stream.write(formatTypeUsage(type));
       stream.write(";\n\n");
     } else if (type.kind === "object") {
-      if (type.abstract) {
-        if (!abstractUnions.has(type.name)) {
-          writeObject(stream, type, type.name + "$Base");
-          stream.write("\n\n");
-        }
+      if (isBase(type.name)) {
+        writeObject(stream, type, type.name + "$Base");
+        stream.write("\n\n");
 
         var extenders = meta.types.filter(
-          (x) => x.extends && x.extends.includes(type.name)
+          (x) =>
+            x.extends &&
+            (x.extends.includes(type.name) ||
+              x.extends.map((x) => x.name).includes(type.name))
         );
-        if (extenders.length > 0) {
-          stream.write(`export type ${type.name} = `);
-          stream.write(extenders.map((x) => x.name).join(" | "));
-          stream.write(";\n\n");
+        stream.write(`export type ${type.name}`);
+        if (type.typeParameters && type.typeParameters.length > 0) {
+          stream.write("<");
+          stream.write(type.typeParameters.join(", "));
+          stream.write(">");
         }
+        stream.write(` = `);
+
+        stream.write(
+          extenders
+            .concat(
+              !type.abstract ? [{ ...type, name: type.name + "$Base" }] : []
+            )
+            .map((x) => formatTypeUsage(x))
+            .join(" | ")
+        );
+        stream.write(";\n\n");
       } else {
         writeObject(stream, type, type.name);
         stream.write("\n\n");
@@ -276,6 +267,62 @@ function generateRpcTs(meta) {
   }
 
   stream.end();
+}
+
+function formatTypeUsage(type) {
+  if (typeof type === "string") {
+    return type;
+  }
+
+  switch (type.kind) {
+    case "union":
+      if (type.types.length === 0) {
+        return "never";
+      }
+
+      return type.types.map(formatTypeUsage).join(" | ");
+
+    case "generic":
+      switch (type.name) {
+        case "array":
+          return `Array<${type.typeArguments.map(formatTypeUsage).join(",")}>`;
+
+        case "tuple":
+          return `[${type.typeArguments.map(formatTypeUsage).join(",")}]`;
+
+        case "optional":
+          return `${type.typeArguments
+            .map(formatTypeUsage)
+            .join(",")} | undefined`;
+
+        case "map": {
+          const keyType = formatTypeUsage(type.typeArguments[0]);
+          const valueType = formatTypeUsage(type.typeArguments[1]);
+          if (keyType === "string" || keyType === "number") {
+            return `{[key: ${keyType}]: ${valueType}}`;
+          } else {
+            return `{[key in ${keyType}]?: ${valueType}}`;
+          }
+        }
+
+        default:
+          return `${type.name}<${type.typeArguments
+            .map(formatTypeUsage)
+            .join(",")}>`;
+      }
+
+    case "object":
+      if (type.typeParameters && type.typeParameters.length > 0) {
+        return `${type.name}<${type.typeParameters
+          .map(formatTypeUsage)
+          .join(",")}>`;
+      }
+
+      return type.name;
+
+    default:
+      return type.name;
+  }
 }
 
 function toCamelCase(str) {

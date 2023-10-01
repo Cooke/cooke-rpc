@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Security.Principal;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
 using CookeRpc.AspNetCore.Utils;
@@ -68,11 +67,6 @@ namespace CookeRpc.AspNetCore.Model
                 return type;
             }
 
-            var regexAttribute = clrType.GetCustomAttribute<RegexRestrictedStringRpcTypeAttribute>();
-            if (regexAttribute != null) {
-                return MapType(clrType, CreateRegexRestrictedStringType(regexAttribute));
-            }
-
             var genericDictionary = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IDictionary<,>)) ??
                                     ReflectionHelper.GetGenericTypeOfDefinition(clrType,
                                         typeof(IReadOnlyDictionary<,>));
@@ -99,14 +93,20 @@ namespace CookeRpc.AspNetCore.Model
                 return MapTupleType(clrType);
             }
 
-            if (clrType.IsGenericType && clrType.GetGenericTypeDefinition() != clrType) {
+            if (clrType.IsGenericType && !clrType.IsGenericTypeDefinition) {
                 var definitionType = MapType(clrType.GetGenericTypeDefinition());
                 if (definitionType is not INamedRpcType namedRpcType) {
                     throw new NotSupportedException("Generic type definitions must map to a named rpc type");
                 }
-                
+
                 var typeArguments = clrType.GenericTypeArguments.Select(MapType).ToList();
                 return new GenericRpcType(clrType, namedRpcType, typeArguments);
+            }
+
+            if (clrType.IsGenericTypeParameter) {
+                var typeParameter = new TypeParameterRpcType(_options.TypeNameFormatter(clrType), clrType);
+                _mappings.Add(clrType, typeParameter);
+                return typeParameter;
             }
 
             if (clrType.IsClass || clrType.IsInterface) {
@@ -182,8 +182,8 @@ namespace CookeRpc.AspNetCore.Model
             string typeName = _options.TypeNameFormatter(clrType);
             var props = new List<RpcPropertyDefinition>();
             var extends = new List<IRpcType>(); // Can only be reffed object type or generic type
-            var typeArguments = clrType.Get
-            var type = new ObjectRpcType(clrType, props, extends, clrType.IsAbstract || clrType.IsInterface, typeName);
+            var typeParameters = new List<TypeParameterRpcType>();
+            var type = new ObjectRpcType(clrType, props, extends, clrType.IsAbstract || clrType.IsInterface, typeName, typeParameters);
             _mappings.Add(clrType, type);
             var rpcType = type;
 
@@ -207,7 +207,14 @@ namespace CookeRpc.AspNetCore.Model
                          .Where(_options.TypeFilter)) {
                 MapType(subType);
             }
-            
+
+            if (clrType.IsTypeDefinition) {
+                typeParameters.AddRange(clrType.GetGenericArguments().Select(MapType).Cast<TypeParameterRpcType>());
+                foreach (var subType in ReflectionHelper.GetAllUserTypes().Where(x => x.BaseType?.IsGenericType == true && x.BaseType.GetGenericTypeDefinition() == clrType).Where(_options.TypeFilter)) {
+                    MapType(subType);
+                }
+            }
+
             return rpcType;
         }
 
@@ -216,7 +223,6 @@ namespace CookeRpc.AspNetCore.Model
             var memberInfos = clrType.GetMembers(_options.MemberBindingFilter).Where(_options.MemberFilter);
 
             var props = new List<RpcPropertyDefinition>();
-
 
             foreach (var memberInfo in memberInfos) {
                 switch (memberInfo) {
@@ -234,7 +240,7 @@ namespace CookeRpc.AspNetCore.Model
 
             RpcPropertyDefinition CreatePropertyModel(Type memberType, MemberInfo memberInfo)
             {
-                var innerType = MapType(memberType, memberInfo);
+                var innerType = MapType(memberType);
                 var type = _options.IsMemberNullable(memberInfo)
                     ? MakeNullable(innerType)
                     : innerType;
@@ -248,7 +254,7 @@ namespace CookeRpc.AspNetCore.Model
         private IRpcType MapUnionType(Type clrType)
         {
             var memberTypes = new List<IRpcType>();
-            var type = new UnionRpcType(memberTypes, clrType);
+            var type = new NamedUnionRpcType(_options.TypeNameFormatter(clrType), memberTypes, clrType);
             _mappings.Add(clrType, type);
             memberTypes.AddRange(ReflectionHelper.FindAllOfType(clrType).Except(new[]
                 {
@@ -288,7 +294,7 @@ namespace CookeRpc.AspNetCore.Model
 
                 List<RpcParameterModel> rpcParameterModels = new();
                 foreach (var parameterInfo in parameterInfos) {
-                    var innerType = MapType(parameterInfo.ParameterType, parameterInfo);
+                    var innerType = MapType(parameterInfo.ParameterType);
                     var paraModel = new RpcParameterModel(parameterInfo.Name ?? throw new InvalidOperationException(),
                         ReflectionHelper.IsNullable(parameterInfo) ? MakeNullable(innerType) : innerType,
                         parameterInfo.HasDefaultValue);
@@ -314,18 +320,6 @@ namespace CookeRpc.AspNetCore.Model
             return serviceModel;
         }
 
-        private IRpcType MapType(Type fromType, ICustomAttributeProvider attributeProvider)
-        {
-            var regexAttribute = attributeProvider.GetCustomAttributes(typeof(RegexRestrictedStringRpcTypeAttribute), false)
-                .OfType<RegexRestrictedStringRpcTypeAttribute>().FirstOrDefault();
-            return regexAttribute != null ? CreateRegexRestrictedStringType(regexAttribute) : MapType(fromType);
-        }
-
-        private IRpcType CreateRegexRestrictedStringType(RegexRestrictedStringRpcTypeAttribute regexRestrictedStringRpcTypeAttribute)
-        {
-            return new RegexRestrictedStringRpcType(regexRestrictedStringRpcTypeAttribute.Pattern);
-        }
-
         private static UnionRpcType MakeNullable(IRpcType innerType)
         {
             return new UnionRpcType(new[]
@@ -336,11 +330,12 @@ namespace CookeRpc.AspNetCore.Model
 
         public RpcModel Build()
         {
-            return new RpcModel(_mappings.Values.OfType<INamedRpcType>().Distinct().OrderBy(x => x switch
+            return new RpcModel(_mappings.Values.Where(x => x is not TypeParameterRpcType).OfType<INamedRpcType>().Distinct().OrderBy(x => x switch
             {
                 PrimitiveRpcType => 0,
                 EnumRpcType => 1,
-                ObjectRpcType => 2,
+                NamedUnionRpcType => 2,
+                ObjectRpcType => 3,
                 _ => throw new ArgumentOutOfRangeException(nameof(x))
             }).ThenBy(x => x.Name).ToList(), _services.Values);
         }

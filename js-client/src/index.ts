@@ -42,7 +42,7 @@ export async function sendJsonRpc<TResult>(
   let responseJson;
   try {
     responseJson = await request(invocationJson);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof RpcError) {
       throw error;
     }

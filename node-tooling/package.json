@@ -1,6 +1,6 @@
 {
   "name": "cooke-rpc-tooling",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Tooling for consuming Cooke RPC endpoints",
   "main": "index.js",
   "repository": "https://github.com/Cooke/cooke-rpc",

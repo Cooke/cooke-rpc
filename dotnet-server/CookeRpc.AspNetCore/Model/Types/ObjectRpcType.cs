@@ -8,7 +8,8 @@ namespace CookeRpc.AspNetCore.Model.TypeDefinitions
         IReadOnlyCollection<RpcPropertyDefinition> Properties,
         IReadOnlyCollection<IRpcType> Extends,
         bool IsAbstract,
-        string Name) : INamedRpcType
+        string Name,
+        IReadOnlyCollection<TypeParameterRpcType> TypeParameters) : INamedRpcType
     {
         public IDictionary<String, Object> Metadata { get; init; } = new Dictionary<string, object>();
     }

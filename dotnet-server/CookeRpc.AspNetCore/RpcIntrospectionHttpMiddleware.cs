@@ -78,11 +78,6 @@ namespace CookeRpc.AspNetCore
                 type switch
                 {
                     INamedRpcType refType => refType.Name,
-                    RegexRestrictedStringRpcType regexString => new
-                    {
-                        kind = "regex-restricted-string",
-                        regex = regexString.Pattern
-                    },
                     UnionRpcType unionType => new
                     {
                         kind = "union",
@@ -121,7 +116,14 @@ namespace CookeRpc.AspNetCore
                         kind = "object",
                         properties = obj.Properties.Count == 0 ? null : obj.Properties.Select(GetIntrospectionProperty),
                         extends = obj.Extends.Count == 0 ? null : obj.Extends.Select(GetTypeUsage),
-                        @abstract = obj.IsAbstract
+                        @abstract = obj.IsAbstract,
+                        typeParameters = obj.TypeParameters.Count == 0 ? null : obj.TypeParameters.Select(GetTypeUsage)
+                    },
+                    NamedUnionRpcType ass => new
+                    {
+                        name = ass.Name,
+                        kind = "union",
+                        types = ass.Types.Select(GetTypeUsage)
                     },
                     _ => throw new ArgumentOutOfRangeException(nameof(type))
                 };
