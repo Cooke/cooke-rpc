@@ -78,6 +78,11 @@ namespace CookeRpc.AspNetCore.Model
             if (genericClrArray != null) {
                 return MapArrayType(clrType, genericClrArray);
             }
+            
+            var asyncEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IAsyncEnumerable<>));
+            if (asyncEnumerable != null) {
+                return MapArrayType(clrType, asyncEnumerable);
+            }
 
             var genericNullable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Nullable<>));
             if (genericNullable != null) {

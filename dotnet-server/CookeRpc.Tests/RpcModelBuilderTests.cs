@@ -89,6 +89,19 @@ namespace CookeRpc.Tests
             var typeBasedOnGeneric = _model.Types.Single(x => x.Name.Equals("TypeBasedOnGeneric"));
             Assert.NotNull(typeBasedOnGeneric);
         }
+        
+        [Fact]
+        void AsyncEnumerable_Support()
+        {
+            var proc = _serviceModel.Procedures.Single(x => x.Name == "StreamStrings");
+            var returnType = Assert.IsType<GenericRpcType>(proc.ReturnType);
+            Assert.Equal(PrimitiveTypes.String, returnType.TypeArguments.Single());
+            var definition = Assert.IsType<PrimitiveRpcType>(returnType.TypeDefinition);
+            Assert.Equal("array", definition.Name);
+
+            var typeBasedOnGeneric = _model.Types.Single(x => x.Name.Equals("TypeBasedOnGeneric"));
+            Assert.NotNull(typeBasedOnGeneric);
+        }
 
         private static void AssertNullable(IRpcType type)
         {
@@ -119,6 +132,8 @@ namespace CookeRpc.Tests
             }
 
             public Generic<double> GetGeneric() => new(0);
+            
+            public IAsyncEnumerable<string> StreamStrings() => throw new NotImplementedException();
         }
 
         [RpcType(Name = "Result")]
