@@ -51,6 +51,13 @@ namespace CookeRpc.Tests
             var proc = _serviceModel.Procedures.Single(x => x.Name == "GetStringTask");
             Assert.Equal("string", Assert.IsType<PrimitiveRpcType>(proc.ReturnType).Name);
         }
+        
+        [Fact]
+        public void Shall_Model_NonNullable_Return_Value_In_ValueTask()
+        {
+            var proc = _serviceModel.Procedures.Single(x => x.Name == "GetStringValueTask");
+            Assert.Equal("string", Assert.IsType<PrimitiveRpcType>(proc.ReturnType).Name);
+        }
 
         [Fact]
         public void Shall_Model_Nullable_Parameter()
@@ -118,6 +125,8 @@ namespace CookeRpc.Tests
             public Task<string?> GetStringOrNullTask() => Task.FromResult<string?>(null);
 
             public Task<string> GetStringTask() => Task.FromResult("");
+            
+            public ValueTask<string> GetStringValueTask() => ValueTask.FromResult("");
 
             public RpcResult GetResult() => new SuccessResult();
 

@@ -53,6 +53,42 @@ namespace CookeRpc.Tests
 
             Assert.Equal("[{\"id\":\"123\"},\"Hello!\"]", await response.Content.ReadAsStringAsync());
         }
+        
+        [Fact]
+        public async Task Invoke_Task_Shall_Work()
+        {
+            var client = _host.GetTestClient();
+            var response = await client.PostAsJsonAsync("/rpc", new object[]
+            {
+                new
+                {
+                    Id = "123",
+                    Service = "TestController",
+                    Proc = "StringInTask"
+                }
+            });
+            response.EnsureSuccessStatusCode();
+
+            Assert.Equal("[{\"id\":\"123\"},\"hello\"]", await response.Content.ReadAsStringAsync());
+        }
+        
+        [Fact]
+        public async Task Invoke_ValueTask_Shall_Work()
+        {
+            var client = _host.GetTestClient();
+            var response = await client.PostAsJsonAsync("/rpc", new object[]
+            {
+                new
+                {
+                    Id = "123",
+                    Service = "TestController",
+                    Proc = "StringInValueTask"
+                }
+            });
+            response.EnsureSuccessStatusCode();
+
+            Assert.Equal("[{\"id\":\"123\"},\"hello\"]", await response.Content.ReadAsStringAsync());
+        }
 
         [Fact]
         public async Task SerializeEnumResult()
@@ -138,6 +174,10 @@ namespace CookeRpc.Tests
             public void SetEmail(Email email)
             {
             }
+            
+            public Task<string> StringInTask() => Task.FromResult("hello");
+            
+            public ValueTask<string> StringInValueTask() => ValueTask.FromResult("hello");
         }
 
         [RpcType(Kind = RpcTypeKind.Primitive)]

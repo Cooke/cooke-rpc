@@ -159,6 +159,12 @@ namespace CookeRpc.AspNetCore.Utils
             {
                 return genericTaskType.GetGenericArguments()[0];
             }
+            
+            genericTaskType = GetGenericTypeOfDefinition(taskType, typeof(ValueTask<>));
+            if (genericTaskType != null)
+            {
+                return genericTaskType.GetGenericArguments()[0];
+            }
 
             return typeof(Task).IsAssignableFrom(taskType) ? typeof(void) : null;
         }

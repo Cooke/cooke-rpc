@@ -55,6 +55,19 @@ namespace CookeRpc.AspNetCore.Model
                         Expression.Block(task.Call("GetAwaiter").Call("GetResult"),
                             Expression.Constant(null, typeof(object))), task));
             }
+            else if (methodInfo.ReturnType == typeof(ValueTask)) {
+                returnType = typeof(void);
+                var cmdCall = result;
+                var task = Expression.Parameter(methodInfo.ReturnType);
+                
+                var continueWithMethod = typeof(Task).GetMethods()
+                    .First(x => x.Name == "ContinueWith" && x.ContainsGenericParameters &&
+                                x.GetParameters().Length == 1).MakeGenericMethod(typeof(object));
+                result = ExpressionExtensions.Call(Expression.Call(cmdCall, "AsTask", Type.EmptyTypes), continueWithMethod,
+                    Expression.Lambda(
+                        Expression.Block(task.Call("GetAwaiter").Call("GetResult"),
+                            Expression.Constant(null, typeof(object))), task));
+            }
             else if (typeof(Task).IsAssignableFrom(methodInfo.ReturnType)) {
                 returnType = methodInfo.ReturnType.GetTaskType()!;
                 var cmdCall = result;
@@ -64,6 +77,18 @@ namespace CookeRpc.AspNetCore.Model
                     .First(x => x.Name == "ContinueWith" && x.ContainsGenericParameters &&
                                 x.GetParameters().Length == 1).MakeGenericMethod(typeof(object));
                 result = ExpressionExtensions.Call(cmdCall, continueWithMethod,
+                    Expression.Lambda(task.Call("GetAwaiter").Call("GetResult").Convert<object>(), task));
+            }
+            else if (methodInfo.ReturnType.IsGenericType && methodInfo.ReturnType.GetGenericTypeDefinition() == typeof(ValueTask<>)) {
+                returnType = methodInfo.ReturnType.GetTaskType()!;
+                var cmdCall = result;
+                var taskType = typeof(Task<>).MakeGenericType(returnType);
+                var task = Expression.Parameter(taskType);
+
+                var continueWithMethod = taskType.GetMethods()
+                    .First(x => x.Name == "ContinueWith" && x.ContainsGenericParameters &&
+                                x.GetParameters().Length == 1).MakeGenericMethod(typeof(object));
+                result = ExpressionExtensions.Call(Expression.Call(cmdCall, "AsTask", Type.EmptyTypes), continueWithMethod,
                     Expression.Lambda(task.Call("GetAwaiter").Call("GetResult").Convert<object>(), task));
             }
             else {
