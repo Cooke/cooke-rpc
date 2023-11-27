@@ -17,12 +17,12 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                 Converters =
                 {
                     new OptionalRpcJsonConverterFactory(),
-                    new TypedObjectConverterFactory(typeBinder),
                     new JsonStringEnumConverter(),
                 },
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 PropertyNameCaseInsensitive = true,
-                IncludeFields = true
+                IncludeFields = true,
+                
             };
             
             configure?.Invoke(_payloadSerializerOptions);
@@ -34,10 +34,10 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             return JsonSerializer.Deserialize(ref reader, type, _payloadSerializerOptions);
         }
 
-        protected override void SerializeReturnValue(IBufferWriter<byte> bufferWriter, object? valueValue)
+        protected override void SerializeReturnValue(IBufferWriter<byte> bufferWriter, object? valueValue, Type type)
         {
             var utf8JsonWriter = new Utf8JsonWriter(bufferWriter);
-            JsonSerializer.Serialize(utf8JsonWriter, valueValue, valueValue?.GetType() ?? typeof(object), _payloadSerializerOptions);
+            JsonSerializer.Serialize(utf8JsonWriter, valueValue, type, _payloadSerializerOptions);
             utf8JsonWriter.Flush();
         }
     }

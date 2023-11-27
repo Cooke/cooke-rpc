@@ -214,6 +214,9 @@ namespace CookeRpc.Tests
             public int Integer { get; set; } = 1337;
         }
 
+        [JsonPolymorphic]
+        [JsonDerivedType(typeof(Banana), typeDiscriminator: "Banana")]
+        [JsonDerivedType(typeof(Apple), typeDiscriminator: "Apple")]
         public interface Fruit
         {
         }

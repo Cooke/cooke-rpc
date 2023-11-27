@@ -93,11 +93,7 @@ namespace CookeRpc.AspNetCore
             RpcResponse? response = null;
             try
             {
-                response = await Dispatch(rpcContext, invocation);
-
-                await context.Request.BodyReader.CompleteAsync();
-
-                _rpcSerializer.Serialize(response, context.Response.BodyWriter);
+                response = await Dispatch(rpcContext, context, invocation);
             }
             finally
             {
@@ -120,7 +116,7 @@ namespace CookeRpc.AspNetCore
             }
         }
 
-        private async Task<RpcResponse> Dispatch(RpcContext rpcContext, RpcInvocation invocation)
+        private async Task<RpcResponse> Dispatch(RpcContext rpcContext, HttpContext httpContext, RpcInvocation invocation)
         {
             if (string.IsNullOrWhiteSpace(invocation.Procedure))
             {
@@ -139,12 +135,19 @@ namespace CookeRpc.AspNetCore
 
             try
             {
-                return await procedure.Delegate.Invoke(rpcContext);
+                var response = await procedure.Delegate.Invoke(rpcContext);
+                
+                await httpContext.Request.BodyReader.CompleteAsync();
+
+                _rpcSerializer.Serialize(response, httpContext.Response.BodyWriter, procedure.ReturnType.ClrType);
+
+                return response;
             }
             catch (Exception e)
             {
                 return Error(Constants.ErrorCodes.ServerError, "Unknown server error", e);
             }
+            
 
             RpcResponse Error(string code, string message, Exception? exception = null)
             {

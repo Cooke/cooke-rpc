@@ -1,3 +1,4 @@
+using System;
 using System.Buffers;
 
 namespace CookeRpc.AspNetCore.Core
@@ -6,6 +7,6 @@ namespace CookeRpc.AspNetCore.Core
     {
         RpcInvocation Parse(ReadOnlySequence<byte> buffer);
         
-        void Serialize(RpcResponse response, IBufferWriter<byte> bufferWriter);
+        void Serialize(RpcResponse response, IBufferWriter<byte> bufferWriter, Type returnType);
     }
 }
