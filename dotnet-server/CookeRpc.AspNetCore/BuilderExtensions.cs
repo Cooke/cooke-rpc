@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using CookeRpc.AspNetCore.Core;
 using CookeRpc.AspNetCore.JsonSerialization;
 using CookeRpc.AspNetCore.Model;
@@ -36,11 +38,6 @@ namespace CookeRpc.AspNetCore
             return model.MapType(typeof(T));
         }
 
-        // public static RpcType AddType<T>(this RpcModelBuilder model, RpcType rpcType)
-        // {
-        //     return model.AddType(typeof(T), rpcType);
-        // }
-
         public static RpcModelBuilder AddRpcServicesByAttribute<TAttribute>(this RpcModelBuilder model)
             where TAttribute : Attribute
         {
@@ -55,29 +52,37 @@ namespace CookeRpc.AspNetCore
             return model;
         }
 
-        public static IApplicationBuilder UseRpc(this IApplicationBuilder app,
-            RpcModel model,
-            Action<JsonSerializerOptions> configureSerializer,
-            string path = "/rpc")
-        {
-            var serializer = new SystemTextJsonRpcSerializer(new RpcModelTypeBinder(model), configureSerializer);
-            return UseRpc(app, model, serializer, path);
-        }
-
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, RpcModel model, string path = "/rpc")
         {
-            var serializer = new SystemTextJsonRpcSerializer(new RpcModelTypeBinder(model));
-            return UseRpc(app, model, serializer, path);
+            var serializerOptions = new JsonSerializerOptions
+            {
+                Converters =
+                {
+                    new OptionalRpcJsonConverterFactory(),
+                    new JsonStringEnumConverter(),
+                },
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true,
+                IncludeFields = true,
+                TypeInfoResolver = new DefaultJsonTypeInfoResolver
+                {
+                    Modifiers =
+                    {
+                        info => JsonTypeInfoModifiers.RpcPolymorphismJsonTypeInfoModifier(model, info)
+                    }
+                }
+            };
+            return UseRpc(app, model, serializerOptions, path);
         }
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app,
             RpcModel model,
-            IRpcSerializer serializer,
+            JsonSerializerOptions serializerOptions,
             string path = "/rpc")
         {
             UseRpcIntrospection(app, model, path + "/introspection");
             return app.UseMiddleware<RpcHttpMiddleware>(
-                new RpcHttpMiddlewareOptions(model, serializer) { Path = path });
+                new RpcHttpMiddlewareOptions(model, serializerOptions) { Path = path });
         }
 
         public static void UseRpcIntrospection(this IApplicationBuilder app,

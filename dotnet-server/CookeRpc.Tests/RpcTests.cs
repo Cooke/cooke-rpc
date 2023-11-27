@@ -109,7 +109,7 @@ namespace CookeRpc.Tests
         }
 
         [Fact]
-        public async Task InvokeAdvanced()
+        public async Task Invoke_PolymorphicValues()
         {
             var client = _host.GetTestClient();
             var response = await client.PostAsync("/rpc",
@@ -132,7 +132,7 @@ namespace CookeRpc.Tests
         }
 
         [Fact]
-        public async Task Invocation_With_Invalid_Type_Shall_Give_Bad_Request()
+        public async Task Invoke_With_Invalid_Type_Shall_Give_Bad_Request()
         {
             var client = _host.GetTestClient();
             var response = await Invoke(client, "TestController", "SetEmail", "invalid_email");
@@ -214,9 +214,6 @@ namespace CookeRpc.Tests
             public int Integer { get; set; } = 1337;
         }
 
-        [JsonPolymorphic]
-        [JsonDerivedType(typeof(Banana), typeDiscriminator: "Banana")]
-        [JsonDerivedType(typeof(Apple), typeDiscriminator: "Apple")]
         public interface Fruit
         {
         }

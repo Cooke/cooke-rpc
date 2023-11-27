@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CookeRpc.AspNetCore.Core;
+using CookeRpc.AspNetCore.JsonSerialization;
 using CookeRpc.AspNetCore.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,31 +17,31 @@ namespace CookeRpc.AspNetCore
 {
     public class RpcHttpMiddlewareOptions
     {
-        public RpcHttpMiddlewareOptions(RpcModel model, IRpcSerializer serializer)
+        public RpcHttpMiddlewareOptions(RpcModel model, JsonSerializerOptions jsonSerializerOptions)
         {
             Model = model;
-            Serializer = serializer;
+            JsonSerializerOptions = jsonSerializerOptions;
         }
 
         public string Path { get; init; } = "/rpc";
 
         public RpcModel Model { get; }
-
-        public IRpcSerializer Serializer { get; }
+        
+        public JsonSerializerOptions JsonSerializerOptions { get; }
     }
 
     public class RpcHttpMiddleware
     {
         private readonly RequestDelegate _next;
         private readonly RpcHttpMiddlewareOptions _options;
-        private readonly IRpcSerializer _rpcSerializer;
+        private readonly JsonRpcSerializer _rpcSerializer;
         private readonly Dictionary<string, Dictionary<string, RpcProcedureModel>> _services;
 
         public RpcHttpMiddleware(RequestDelegate next, RpcHttpMiddlewareOptions options)
         {
             _next = next;
             _options = options;
-            _rpcSerializer = options.Serializer;
+            _rpcSerializer = new JsonRpcSerializer(options.JsonSerializerOptions);
             _services = options.Model.Services.ToDictionary(x => x.Name, x => x.Procedures.ToDictionary(y => y.Name));
         }
 

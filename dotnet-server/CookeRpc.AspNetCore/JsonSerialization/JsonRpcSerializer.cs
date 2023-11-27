@@ -8,9 +8,15 @@ using CookeRpc.AspNetCore.Utils;
 
 namespace CookeRpc.AspNetCore.JsonSerialization
 {
-    public abstract class JsonRpcSerializerBase : IRpcSerializer
+    public class JsonRpcSerializer
     {
+        private readonly JsonSerializerOptions _payloadSerializerOptions;
         private readonly JsonSerializerOptions _protocolSerializerOptions = new JsonSerializerOptions {PropertyNamingPolicy = JsonNamingPolicy.CamelCase};
+
+        public JsonRpcSerializer(JsonSerializerOptions payloadSerializerOptions)
+        {
+            _payloadSerializerOptions = payloadSerializerOptions;
+        }
 
         public RpcInvocation Parse(ReadOnlySequence<byte> buffer)
         {
@@ -54,7 +60,11 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             return new RpcInvocation(header.Id, header.Service, header.Proc, consumeArgument);
         }
 
-        protected abstract object? DeserializeArgument(ReadOnlySequence<byte> argument, Type type);
+        private object? DeserializeArgument(ReadOnlySequence<byte> argument, Type type)
+        {
+            var reader = new Utf8JsonReader(argument);
+            return JsonSerializer.Deserialize(ref reader, type, _payloadSerializerOptions);
+        }
 
         public void Serialize(RpcResponse response, IBufferWriter<byte> bufferWriter, Type returnType)
         {
@@ -90,7 +100,12 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             writer.Flush();
         }
 
-        protected abstract void SerializeReturnValue(IBufferWriter<byte> bufferWriter, object? valueValue, Type type);
+        private void SerializeReturnValue(IBufferWriter<byte> bufferWriter, object? valueValue, Type type)
+        {
+            var utf8JsonWriter = new Utf8JsonWriter(bufferWriter);
+            JsonSerializer.Serialize(utf8JsonWriter, valueValue, type, _payloadSerializerOptions);
+            utf8JsonWriter.Flush();
+        }
 
         // ReSharper disable AutoPropertyCanBeMadeGetOnly.Global
 
