@@ -120,6 +120,19 @@ namespace CookeRpc.Tests
 
             Assert.Equal("[{\"id\":\"123\"},{\"$type\":\"Banana\"}]", await response.Content.ReadAsStringAsync());
         }
+        
+        [Fact]
+        public async Task Invoke_Numbers()
+        {
+            var client = _host.GetTestClient();
+            var response = await client.PostAsync("/rpc",
+                new StringContent(
+                    @"[{""id"":""123"",""service"":""TestController"",""proc"":""EchoNumber""},1]"));
+
+            response.EnsureSuccessStatusCode();
+
+            Assert.Equal("[{\"id\":\"123\"},1]", await response.Content.ReadAsStringAsync());
+        }
 
         [Fact]
         public async Task Inspect()
@@ -167,7 +180,9 @@ namespace CookeRpc.Tests
 
             public TestModel Fetch() => new();
 
-            public Fruit EchoFruit(Fruit fruit) => fruit;
+            public Task<Fruit?> EchoFruit(Fruit fruit) => Task.FromResult((Fruit?)fruit);
+            
+            public Task<int> EchoNumber(int num) => Task.FromResult(num);
 
             public YesOrNo Ask() => YesOrNo.No;
 

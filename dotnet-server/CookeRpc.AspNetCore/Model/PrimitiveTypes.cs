@@ -12,7 +12,7 @@ namespace CookeRpc.AspNetCore.Model
         public static PrimitiveRpcType Null { get; } = new PrimitiveRpcType("null", typeof(object));
         public static PrimitiveRpcType Unknown { get; } = new PrimitiveRpcType("unknown", typeof(object));
         public static PrimitiveRpcType String { get; } = new PrimitiveRpcType("string", typeof(string));
-        public static PrimitiveRpcType Number { get; } = new PrimitiveRpcType("number", typeof(double));
+        public static PrimitiveRpcType Number { get; } = new PrimitiveRpcType("number", typeof(object));
         public static PrimitiveRpcType Boolean { get; } = new PrimitiveRpcType("boolean", typeof(bool));
         public static PrimitiveRpcType Void { get; } = new PrimitiveRpcType("void", typeof(void));
         public static PrimitiveRpcType Map { get; } = new PrimitiveRpcType("map", typeof(Dictionary<,>));

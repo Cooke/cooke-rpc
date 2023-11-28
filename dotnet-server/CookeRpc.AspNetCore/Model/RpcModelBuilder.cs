@@ -312,7 +312,7 @@ namespace CookeRpc.AspNetCore.Model
                     ? new UnionRpcType(new[]
                     {
                         PrimitiveTypes.Null, rpcReturnType
-                    }, method.ReturnType)
+                    }, rpcReturnType.ClrType)
                     : rpcReturnType;
 
                 var procModel = new RpcProcedureModel(_options.ProcedureNameFormatter(method), rpcDelegate,
