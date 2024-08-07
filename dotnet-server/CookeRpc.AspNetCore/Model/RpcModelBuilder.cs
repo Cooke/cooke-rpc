@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using CookeRpc.AspNetCore.Model.TypeDefinitions;
 using CookeRpc.AspNetCore.Model.Types;
 using CookeRpc.AspNetCore.Utils;
@@ -30,11 +31,18 @@ namespace CookeRpc.AspNetCore.Model
             return type;
         }
 
+        
         public IRpcType MapType(Type clrType)
         {
+            return MapType(clrType, (NullabilityInfo?)null);
+        }
+
+        public IRpcType MapType(Type clrType, NullabilityInfo? nullabilityInfo)
+        {
             var knownType = _mappings.GetValueOrDefault(clrType);
-            if (knownType != null) {
-                return knownType;
+            if (knownType != null)
+            {
+                return IncludeNullIfNeeded(clrType, nullabilityInfo, knownType);
             }
 
             if (_options.OnMappingType != null) {
@@ -42,7 +50,7 @@ namespace CookeRpc.AspNetCore.Model
 
                 var knownType2 = _mappings.GetValueOrDefault(clrType);
                 if (knownType2 != null) {
-                    return knownType2;
+                    return IncludeNullIfNeeded(clrType, nullabilityInfo, knownType2);
                 }
             }
 
@@ -53,7 +61,7 @@ namespace CookeRpc.AspNetCore.Model
 
             if (_options.MapResolutions.TryGetValue(clrType, out var resolution)) {
                 _mappings.Add(clrType, resolution);
-                return resolution;
+                return IncludeNullIfNeeded(clrType, nullabilityInfo, resolution);
             }
 
             var rpcTypeAttribute = clrType.GetCustomAttribute<RpcTypeAttribute>();
@@ -71,17 +79,21 @@ namespace CookeRpc.AspNetCore.Model
                                     ReflectionHelper.GetGenericTypeOfDefinition(clrType,
                                         typeof(IReadOnlyDictionary<,>));
             if (genericDictionary != null) {
-                return MapMapType(clrType, genericDictionary);
+                return MapMapType(clrType, genericDictionary, nullabilityInfo?.GenericTypeArguments[1]);
+            }
+            
+            if (clrType.IsArray) {
+                return MapArrayType(clrType, clrType.GetElementType() ?? throw new InvalidOperationException("Array type must have an element type"), nullabilityInfo?.ElementType);
             }
 
             var genericEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IEnumerable<>));
             if (genericEnumerable != null) {
-                return MapArrayType(clrType, genericEnumerable);
+                return MapArrayType(clrType, genericEnumerable.GetGenericArguments()[0], nullabilityInfo?.GenericTypeArguments.FirstOrDefault());
             }
             
             var asyncEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IAsyncEnumerable<>));
             if (asyncEnumerable != null) {
-                return MapArrayType(clrType, asyncEnumerable);
+                return MapArrayType(clrType, asyncEnumerable.GetGenericArguments()[0], nullabilityInfo?.GenericTypeArguments.FirstOrDefault());
             }
 
             var genericNullable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Nullable<>));
@@ -125,6 +137,16 @@ namespace CookeRpc.AspNetCore.Model
             throw new ArgumentException($"Invalid type {clrType}");
         }
 
+        private static IRpcType IncludeNullIfNeeded(Type clrType, NullabilityInfo? nullabilityInfo, IRpcType knownType)
+        {
+            if (nullabilityInfo?.ReadState == NullabilityState.Nullable)
+            {
+                return new UnionRpcType([knownType, PrimitiveTypes.Null], clrType);
+            }
+
+            return knownType;
+        }
+
         private IRpcType MapTupleType(Type clrType)
         {
             var typeArguments = new List<IRpcType>();
@@ -157,17 +179,17 @@ namespace CookeRpc.AspNetCore.Model
             return unionType;
         }
 
-        private IRpcType MapArrayType(Type clrType, Type genericClrArray)
+        private IRpcType MapArrayType(Type clrType, Type elementType, NullabilityInfo? elementNullabilityInfo)
         {
             var typeArguments = new List<IRpcType>();
-            var arrayType = (PrimitiveRpcType)MapType(typeof(IEnumerable<>));
+            var arrayType = (PrimitiveRpcType)MapType(typeof(IEnumerable<>), (NullabilityInfo?)null);
             var genericType = new GenericRpcType(clrType, arrayType, typeArguments);
             _mappings.Add(clrType, genericType);
-            typeArguments.Add(MapType(genericClrArray.GenericTypeArguments[0]));
+            typeArguments.Add(MapType(elementType, elementNullabilityInfo));
             return genericType;
         }
 
-        private IRpcType MapMapType(Type clrType, Type genericDictionary)
+        private IRpcType MapMapType(Type clrType, Type genericDictionary, NullabilityInfo? valueNullabilityInfo)
         {
             var keyType = genericDictionary.GenericTypeArguments[0];
             var valueType = genericDictionary.GenericTypeArguments[1];
@@ -177,7 +199,7 @@ namespace CookeRpc.AspNetCore.Model
             _mappings.Add(clrType, genericType);
             typeArguments.AddRange(new[]
             {
-                MapType(keyType), MapType(valueType)
+                MapType(keyType), MapType(valueType, valueNullabilityInfo)
             });
             return genericType;
         }
@@ -232,28 +254,28 @@ namespace CookeRpc.AspNetCore.Model
             foreach (var memberInfo in memberInfos) {
                 switch (memberInfo) {
                     case FieldInfo fieldInfo when _options.TypeFilter(fieldInfo.FieldType):
-                        props.Add(CreatePropertyModel(fieldInfo.FieldType, fieldInfo));
+                    {
+                        props.Add(CreatePropertyDefinition(memberInfo, fieldInfo.FieldType, GetNullabilityInfo(fieldInfo)));
                         break;
+                    }
 
                     case PropertyInfo propertyInfo when _options.TypeFilter(propertyInfo.PropertyType):
-                        props.Add(CreatePropertyModel(propertyInfo.PropertyType, propertyInfo));
+                    {
+                        props.Add(CreatePropertyDefinition(memberInfo, propertyInfo.PropertyType, GetNullabilityInfo(propertyInfo)));
+                        
                         break;
+                    }
                 }
             }
 
             return props;
 
-            RpcPropertyDefinition CreatePropertyModel(Type memberType, MemberInfo memberInfo)
-            {
-                var innerType = MapType(memberType);
-                var type = _options.IsMemberNullable(memberInfo)
-                    ? MakeNullable(innerType)
-                    : innerType;
-                return new RpcPropertyDefinition(_options.MemberNameFormatter(memberInfo), type, memberInfo)
+            RpcPropertyDefinition CreatePropertyDefinition(MemberInfo memberInfo, Type type, NullabilityInfo nullabilityInfo) =>
+                new(_options.MemberNameFormatter(memberInfo),
+                    MapType(type, nullabilityInfo), memberInfo)
                 {
-                    IsOptional = _options.IsMemberOptional(memberInfo),
+                    IsOptional = nullabilityInfo.WriteState == NullabilityState.Nullable,
                 };
-            }
         }
 
         private IRpcType MapUnionType(Type clrType)
@@ -299,24 +321,21 @@ namespace CookeRpc.AspNetCore.Model
 
                 List<RpcParameterModel> rpcParameterModels = new();
                 foreach (var parameterInfo in parameterInfos) {
-                    var innerType = MapType(parameterInfo.ParameterType);
+                    var innerType = MapType(parameterInfo.ParameterType, GetNullabilityInfo(parameterInfo));
                     var paraModel = new RpcParameterModel(parameterInfo.Name ?? throw new InvalidOperationException(),
-                        ReflectionHelper.IsNullable(parameterInfo) ? MakeNullable(innerType) : innerType,
+                        innerType,
                         parameterInfo.HasDefaultValue);
 
                     rpcParameterModels.Add(paraModel);
                 }
 
-                var rpcReturnType = MapType(returnType);
-                var returnTypeModel = ReflectionHelper.IsNullableReturn(method)
-                    ? new UnionRpcType(new[]
-                    {
-                        PrimitiveTypes.Null, rpcReturnType
-                    }, rpcReturnType.ClrType)
-                    : rpcReturnType;
-
+                var taskType = ReflectionHelper.GetGenericTypeOfDefinition(method.ReturnType, typeof(Task<>));
+                var rpcReturnType = taskType != null ? 
+                    MapType(taskType.GenericTypeArguments[0], GetNullabilityInfo(method.ReturnParameter).GenericTypeArguments[0]) : 
+                    MapType(returnType, GetNullabilityInfo(method.ReturnParameter));
+                
                 var procModel = new RpcProcedureModel(_options.ProcedureNameFormatter(method), rpcDelegate,
-                    returnTypeModel, rpcParameterModels, method.GetCustomAttributes().ToArray());
+                    rpcReturnType, rpcParameterModels, method.GetCustomAttributes().ToArray());
 
                 procedures.Add(procModel);
             }
@@ -325,13 +344,11 @@ namespace CookeRpc.AspNetCore.Model
             return serviceModel;
         }
 
-        private static UnionRpcType MakeNullable(IRpcType innerType)
-        {
-            return new UnionRpcType(new[]
-            {
-                PrimitiveTypes.Null, innerType
-            }, innerType.ClrType);
-        }
+        private static NullabilityInfo GetNullabilityInfo(ParameterInfo parameter) => new NullabilityInfoContext().Create(parameter);
+        
+        private static NullabilityInfo GetNullabilityInfo(FieldInfo fieldInfo) => new NullabilityInfoContext().Create(fieldInfo);
+        
+        private static NullabilityInfo GetNullabilityInfo(PropertyInfo propertyInfo) => new NullabilityInfoContext().Create(propertyInfo);
 
         public RpcModel Build()
         {

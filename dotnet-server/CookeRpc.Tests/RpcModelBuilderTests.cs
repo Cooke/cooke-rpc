@@ -118,8 +118,32 @@ namespace CookeRpc.Tests
             var definition = Assert.IsType<PrimitiveRpcType>(returnType.TypeDefinition);
             Assert.Equal("array", definition.Name);
             var unionRpcType = Assert.IsType<UnionRpcType>(returnType.TypeArguments.Single());
-            Assert.Equal(PrimitiveTypes.Null, unionRpcType.Types.First());
-            Assert.Equal(PrimitiveTypes.String, unionRpcType.Types.ElementAt(1));
+            Assert.Equal(PrimitiveTypes.String, unionRpcType.Types.ElementAt(0));
+            Assert.Equal(PrimitiveTypes.Null, unionRpcType.Types.ElementAt(1));
+        }
+        
+        [Fact]
+        void List_Of_Nullable_Support()
+        {
+            var proc = _serviceModel.Procedures.Single(x => x.Name == "GetListOfNullable");
+            var returnType = Assert.IsType<GenericRpcType>(proc.ReturnType);
+            var definition = Assert.IsType<PrimitiveRpcType>(returnType.TypeDefinition);
+            Assert.Equal("array", definition.Name);
+            var unionRpcType = Assert.IsType<UnionRpcType>(returnType.TypeArguments.Single());
+            Assert.Equal(PrimitiveTypes.String, unionRpcType.Types.ElementAt(0));
+            Assert.Equal(PrimitiveTypes.Null, unionRpcType.Types.ElementAt(1));
+        }
+        
+        [Fact]
+        void Dictionary_Of_Nullable_Support()
+        {
+            var proc = _serviceModel.Procedures.Single(x => x.Name == "GetDictionaryOfNullable");
+            var returnType = Assert.IsType<GenericRpcType>(proc.ReturnType);
+            var definition = Assert.IsType<PrimitiveRpcType>(returnType.TypeDefinition);
+            Assert.Equal("map", definition.Name);
+            var unionRpcType = Assert.IsType<UnionRpcType>(returnType.TypeArguments.ElementAt(1));
+            Assert.Equal(PrimitiveTypes.String, unionRpcType.Types.ElementAt(0));
+            Assert.Equal(PrimitiveTypes.Null, unionRpcType.Types.ElementAt(1));
         }
 
         private static void AssertNullable(IRpcType type)
@@ -156,7 +180,11 @@ namespace CookeRpc.Tests
             
             public IAsyncEnumerable<string> StreamStrings() => throw new NotImplementedException();
 
-            public List<string> GetArrayOfNullable() => throw new NotImplementedException();
+            public string?[] GetArrayOfNullable() => throw new NotImplementedException();
+            
+            public List<string?> GetListOfNullable() => throw new NotImplementedException();
+            
+            public Dictionary<int, string?> GetDictionaryOfNullable() => throw new NotImplementedException();
         }
 
         [RpcType(Name = "Result")]
