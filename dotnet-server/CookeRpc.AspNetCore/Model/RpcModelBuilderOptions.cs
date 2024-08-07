@@ -68,10 +68,6 @@ namespace CookeRpc.AspNetCore.Model
             };
         };
 
-        public Func<MemberInfo, bool> IsMemberOptional { get; init; } = ReflectionHelper.IsNullable;
-
-        public Func<MemberInfo, bool> IsMemberNullable { get; init; } = ReflectionHelper.IsNullable;
-
         public Func<string, string> EnumMemberNameFormatter { get; init; } = name => name;
 
         public Func<Type, string> ServiceNameFormatter { get; init; } = type => type.Name;
