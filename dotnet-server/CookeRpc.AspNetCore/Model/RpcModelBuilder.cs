@@ -74,9 +74,9 @@ namespace CookeRpc.AspNetCore.Model
                 return MapMapType(clrType, genericDictionary);
             }
 
-            var genericClrArray = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IEnumerable<>));
-            if (genericClrArray != null) {
-                return MapArrayType(clrType, genericClrArray);
+            var genericEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IEnumerable<>));
+            if (genericEnumerable != null) {
+                return MapArrayType(clrType, genericEnumerable);
             }
             
             var asyncEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IAsyncEnumerable<>));
