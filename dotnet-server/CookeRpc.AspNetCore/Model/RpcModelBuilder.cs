@@ -39,112 +39,124 @@ namespace CookeRpc.AspNetCore.Model
 
         public IRpcType MapType(Type clrType, NullabilityInfo? nullabilityInfo)
         {
-            var knownType = _mappings.GetValueOrDefault(clrType);
-            if (knownType != null)
-            {
-                return IncludeNullIfNeeded(clrType, nullabilityInfo, knownType);
-            }
-
-            if (_options.OnMappingType != null) {
-                _options.OnMappingType.Invoke(clrType, this);
-
-                var knownType2 = _mappings.GetValueOrDefault(clrType);
-                if (knownType2 != null) {
-                    return IncludeNullIfNeeded(clrType, nullabilityInfo, knownType2);
-                }
-            }
-
-            if (!_options.TypeFilter(clrType)) {
-                throw new InvalidOperationException(
-                    $"Type ${clrType} cannot be mapped due to the type filter configuration");
-            }
-
-            if (_options.MapResolutions.TryGetValue(clrType, out var resolution)) {
-                _mappings.Add(clrType, resolution);
-                return IncludeNullIfNeeded(clrType, nullabilityInfo, resolution);
-            }
-
-            var rpcTypeAttribute = clrType.GetCustomAttribute<RpcTypeAttribute>();
-            if (rpcTypeAttribute?.Kind == RpcTypeKind.Union) {
-                return MapUnionType(clrType);
-            }
-
-            if (rpcTypeAttribute?.Kind == RpcTypeKind.Primitive) {
-                var type = new PrimitiveRpcType(rpcTypeAttribute.Name ?? _options.TypeNameFormatter(clrType), clrType);
-                _mappings.Add(clrType, type);
-                return type;
-            }
-
-            var genericDictionary = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IDictionary<,>)) ??
-                                    ReflectionHelper.GetGenericTypeOfDefinition(clrType,
-                                        typeof(IReadOnlyDictionary<,>));
-            if (genericDictionary != null) {
-                return MapMapType(clrType, genericDictionary, nullabilityInfo?.GenericTypeArguments[1]);
-            }
-            
-            if (clrType.IsArray) {
-                return MapArrayType(clrType, clrType.GetElementType() ?? throw new InvalidOperationException("Array type must have an element type"), nullabilityInfo?.ElementType);
-            }
-
-            var genericEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IEnumerable<>));
-            if (genericEnumerable != null) {
-                return MapArrayType(clrType, genericEnumerable.GetGenericArguments()[0], nullabilityInfo?.GenericTypeArguments.FirstOrDefault());
-            }
-            
-            var asyncEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IAsyncEnumerable<>));
-            if (asyncEnumerable != null) {
-                return MapArrayType(clrType, asyncEnumerable.GetGenericArguments()[0], nullabilityInfo?.GenericTypeArguments.FirstOrDefault());
-            }
-
-            var genericNullable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Nullable<>));
-            if (genericNullable != null) {
-                return MapNullableType(clrType, genericNullable);
-            }
-
-            var optional = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Optional<>));
-            if (optional != null) {
-                return MapOptionalType(clrType, optional);
-            }
-
-            if (clrType.IsAssignableTo(typeof(ITuple))) {
-                return MapTupleType(clrType);
-            }
-
-            if (clrType.IsGenericType && !clrType.IsGenericTypeDefinition) {
-                var definitionType = MapType(clrType.GetGenericTypeDefinition());
-                if (definitionType is not INamedRpcType namedRpcType) {
-                    throw new NotSupportedException("Generic type definitions must map to a named rpc type");
-                }
-
-                var typeArguments = clrType.GenericTypeArguments.Select(MapType).ToList();
-                return new GenericRpcType(clrType, namedRpcType, typeArguments);
-            }
-
-            if (clrType.IsGenericTypeParameter) {
-                var typeParameter = new TypeParameterRpcType(_options.TypeNameFormatter(clrType), clrType);
-                _mappings.Add(clrType, typeParameter);
-                return typeParameter;
-            }
-
-            if (clrType.IsClass || clrType.IsInterface) {
-                return MapObjectType(clrType);
-            }
-
-            if (clrType.IsEnum) {
-                return MapEnumType(clrType);
-            }
-
-            throw new ArgumentException($"Invalid type {clrType}");
-        }
-
-        private static IRpcType IncludeNullIfNeeded(Type clrType, NullabilityInfo? nullabilityInfo, IRpcType knownType)
-        {
             if (nullabilityInfo?.ReadState == NullabilityState.Nullable)
             {
-                return new UnionRpcType([knownType, PrimitiveTypes.Null], clrType);
+                return new UnionRpcType([Map(), PrimitiveTypes.Null], clrType);
             }
 
-            return knownType;
+            return Map();
+
+            IRpcType Map()
+            {
+                var knownType = _mappings.GetValueOrDefault(clrType);
+                if (knownType != null)
+                {
+                    return knownType;
+                }
+
+                if (_options.OnMappingType != null) {
+                    _options.OnMappingType.Invoke(clrType, this);
+
+                    var knownType2 = _mappings.GetValueOrDefault(clrType);
+                    if (knownType2 != null)
+                    {
+                        return knownType2;
+                    }
+                }
+
+                if (!_options.TypeFilter(clrType)) {
+                    throw new InvalidOperationException(
+                        $"Type ${clrType} cannot be mapped due to the type filter configuration");
+                }
+
+                if (_options.MapResolutions.TryGetValue(clrType, out var resolution))
+                {
+                    _mappings.Add(clrType, resolution);
+                    return resolution;
+                }
+
+                var rpcTypeAttribute = clrType.GetCustomAttribute<RpcTypeAttribute>();
+                if (rpcTypeAttribute?.Kind == RpcTypeKind.Union)
+                {
+                    return MapUnionType(clrType);
+                }
+
+                if (rpcTypeAttribute?.Kind == RpcTypeKind.Primitive) {
+                    var type = new PrimitiveRpcType(rpcTypeAttribute.Name ?? _options.TypeNameFormatter(clrType), clrType);
+                    _mappings.Add(clrType, type);
+                    return type;
+                }
+
+                var genericDictionary = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IDictionary<,>)) ??
+                                        ReflectionHelper.GetGenericTypeOfDefinition(clrType,
+                                            typeof(IReadOnlyDictionary<,>));
+                if (genericDictionary != null)
+                {
+                    return MapMapType(clrType, genericDictionary, nullabilityInfo?.GenericTypeArguments[1]);
+                }
+            
+                if (clrType.IsArray)
+                {
+                    return MapArrayType(clrType, clrType.GetElementType() ?? throw new InvalidOperationException("Array type must have an element type"), nullabilityInfo?.ElementType);
+                }
+
+                var genericEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IEnumerable<>));
+                if (genericEnumerable != null)
+                {
+                    return MapArrayType(clrType, genericEnumerable.GetGenericArguments()[0], nullabilityInfo?.GenericTypeArguments.FirstOrDefault());
+                }
+            
+                var asyncEnumerable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(IAsyncEnumerable<>));
+                if (asyncEnumerable != null)
+                {
+                    return MapArrayType(clrType, asyncEnumerable.GetGenericArguments()[0], nullabilityInfo?.GenericTypeArguments.FirstOrDefault());
+                }
+
+                var genericNullable = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Nullable<>));
+                if (genericNullable != null)
+                {
+                    return MapNullableType(clrType, genericNullable);
+                }
+
+                var optional = ReflectionHelper.GetGenericTypeOfDefinition(clrType, typeof(Optional<>));
+                if (optional != null)
+                {
+                    return MapOptionalType(clrType, optional);
+                }
+
+                if (clrType.IsAssignableTo(typeof(ITuple)))
+                {
+                    return MapTupleType(clrType);
+                }
+
+                if (clrType.IsGenericType && !clrType.IsGenericTypeDefinition) {
+                    var definitionType = MapType(clrType.GetGenericTypeDefinition());
+                    if (definitionType is not INamedRpcType namedRpcType) {
+                        throw new NotSupportedException("Generic type definitions must map to a named rpc type");
+                    }
+
+                    var typeArguments = clrType.GenericTypeArguments.Select(MapType).ToList();
+                    return new GenericRpcType(clrType, namedRpcType, typeArguments);
+                }
+
+                if (clrType.IsGenericTypeParameter) {
+                    var typeParameter = new TypeParameterRpcType(_options.TypeNameFormatter(clrType), clrType);
+                    _mappings.Add(clrType, typeParameter);
+                    return typeParameter;
+                }
+
+                if (clrType.IsClass || clrType.IsInterface)
+                {
+                    return MapObjectType(clrType);
+                }
+
+                if (clrType.IsEnum)
+                {
+                    return MapEnumType(clrType);
+                }
+
+                throw new ArgumentException($"Invalid type {clrType}");
+            }
         }
 
         private IRpcType MapTupleType(Type clrType)

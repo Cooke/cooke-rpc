@@ -145,6 +145,15 @@ namespace CookeRpc.Tests
             Assert.Equal(PrimitiveTypes.String, unionRpcType.Types.ElementAt(0));
             Assert.Equal(PrimitiveTypes.Null, unionRpcType.Types.ElementAt(1));
         }
+        
+        [Fact]
+        void Nullable_Explicit_Union_Support()
+        {
+            var proc = _serviceModel.Procedures.Single(x => x.Name == "GetNullableExplicitUnion");
+            var returnType = Assert.IsType<UnionRpcType>(proc.ReturnType);
+            Assert.IsType<NamedUnionRpcType>(returnType.Types.ElementAt(0));
+            Assert.Equal(PrimitiveTypes.Null, returnType.Types.ElementAt(1));
+        }
 
         private static void AssertNullable(IRpcType type)
         {
@@ -185,6 +194,8 @@ namespace CookeRpc.Tests
             public List<string?> GetListOfNullable() => throw new NotImplementedException();
             
             public Dictionary<int, string?> GetDictionaryOfNullable() => throw new NotImplementedException();
+            
+            public ExplicitUnion? GetNullableExplicitUnion() => throw new NotImplementedException();
         }
 
         [RpcType(Name = "Result")]
@@ -206,5 +217,18 @@ namespace CookeRpc.Tests
         public record Generic<TArg>(TArg Arg);
 
         public record TypeBasedOnGeneric(int v) : Generic<int>(v);
+
+        [RpcType(Kind = RpcTypeKind.Union)]
+        public abstract class ExplicitUnion
+        {
+        }
+        
+        public class ExplicitUnionMember1 : ExplicitUnion
+        {
+        }
+        
+        public class ExplicitUnionMember2 : ExplicitUnion
+        {
+        }
     }
 }
