@@ -11,7 +11,8 @@ namespace CookeRpc.AspNetCore.JsonSerialization
     public class JsonRpcSerializer
     {
         private readonly JsonSerializerOptions _payloadSerializerOptions;
-        private readonly JsonSerializerOptions _protocolSerializerOptions = new JsonSerializerOptions {PropertyNamingPolicy = JsonNamingPolicy.CamelCase};
+        private readonly JsonSerializerOptions _protocolSerializerOptions =
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
         public JsonRpcSerializer(JsonSerializerOptions payloadSerializerOptions)
         {
@@ -27,8 +28,11 @@ namespace CookeRpc.AspNetCore.JsonSerialization
 
             // Header start
             reader.Read();
-            var header = JsonSerializer.Deserialize<JsonRpcInvocationHeader>(ref reader, _protocolSerializerOptions) ??
-                         throw new JsonException("Failed to parse RPC invocation header");
+            var header =
+                JsonSerializer.Deserialize<JsonRpcInvocationHeader>(
+                    ref reader,
+                    _protocolSerializerOptions
+                ) ?? throw new JsonException("Failed to parse RPC invocation header");
 
             buffer = buffer.Slice(reader.BytesConsumed);
             var argumentState = reader.CurrentState;
@@ -47,9 +51,9 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                 argumentReader.Skip();
 
                 var argument = DeserializeArgument(
-                    buffer.Slice(argumentStart,
-                        argumentReader.BytesConsumed - argumentStart), 
-                    type);
+                    buffer.Slice(argumentStart, argumentReader.BytesConsumed - argumentStart),
+                    type
+                );
 
                 argumentState = argumentReader.CurrentState;
                 buffer = buffer.Slice(argumentReader.BytesConsumed);
@@ -66,7 +70,11 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             return JsonSerializer.Deserialize(ref reader, type, _payloadSerializerOptions);
         }
 
-        public void Serialize(RpcResponse response, IBufferWriter<byte> bufferWriter, Type returnType)
+        public void Serialize(
+            RpcResponse response,
+            IBufferWriter<byte> bufferWriter,
+            Type returnType
+        )
         {
             using var writer = new Utf8JsonWriter(bufferWriter);
             writer.WriteStartArray();
@@ -74,19 +82,24 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             switch (response)
             {
                 case RpcError rpcError:
-                    JsonSerializer.Serialize(writer,
+                    JsonSerializer.Serialize(
+                        writer,
                         new JsonRpcReturnErrorHeader(response.Id, rpcError.Code, rpcError.Message),
-                        _protocolSerializerOptions);
+                        _protocolSerializerOptions
+                    );
                     break;
 
                 case RpcReturnValue rpcReturnValue:
-                    JsonSerializer.Serialize(writer, new JsonRpcReturnHeader {Id = response.Id},
-                        _protocolSerializerOptions);
+                    JsonSerializer.Serialize(
+                        writer,
+                        new JsonRpcReturnHeader { Id = response.Id },
+                        _protocolSerializerOptions
+                    );
 
                     if (rpcReturnValue.Value.HasValue)
                     {
                         writer.Flush();
-                        bufferWriter.Write(new[] {(byte) ','});
+                        bufferWriter.Write(new[] { (byte)',' });
                         SerializeReturnValue(bufferWriter, rpcReturnValue.Value.Value, returnType);
                     }
 
@@ -100,7 +113,11 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             writer.Flush();
         }
 
-        private void SerializeReturnValue(IBufferWriter<byte> bufferWriter, object? valueValue, Type type)
+        private void SerializeReturnValue(
+            IBufferWriter<byte> bufferWriter,
+            object? valueValue,
+            Type type
+        )
         {
             var utf8JsonWriter = new Utf8JsonWriter(bufferWriter);
             JsonSerializer.Serialize(utf8JsonWriter, valueValue, type, _payloadSerializerOptions);
@@ -111,16 +128,20 @@ namespace CookeRpc.AspNetCore.JsonSerialization
 
         public class JsonRpcInvocationHeader
         {
-            [JsonPropertyName("id")] public string Id { get; init; } = "";
+            [JsonPropertyName("id")]
+            public string Id { get; init; } = "";
 
-            [JsonPropertyName("proc")] public string Proc { get; init; } = "";
+            [JsonPropertyName("proc")]
+            public string Proc { get; init; } = "";
 
-            [JsonPropertyName("service")] public string Service { get; init; } = "";
+            [JsonPropertyName("service")]
+            public string Service { get; init; } = "";
         }
 
         public class JsonRpcReturnHeader
         {
-            [JsonPropertyName("id")] public string Id { get; set; } = "";
+            [JsonPropertyName("id")]
+            public string Id { get; set; } = "";
         }
 
         public class JsonRpcReturnErrorHeader
@@ -132,8 +153,8 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                 ErrorMessage = errorMessage;
             }
 
-            [JsonPropertyName("id")] public string Id { get; }
-
+            [JsonPropertyName("id")]
+            public string Id { get; }
 
             public string ErrorCode { get; }
 

@@ -6,5 +6,4 @@ namespace CookeRpc.AspNetCore.Model.TypeDefinitions
     {
         Type ClrType { get; }
     }
-
 }

@@ -6,10 +6,12 @@ namespace CookeRpc.AspNetCore.Core
 {
     public record RpcInvocation
     {
-        public RpcInvocation(string id,
+        public RpcInvocation(
+            string id,
             string service,
             string procedure,
-            Func<Type, ValueTask<Optional<object?>>> consumeArgument)
+            Func<Type, ValueTask<Optional<object?>>> consumeArgument
+        )
         {
             Id = id;
             Service = service;
@@ -30,7 +32,8 @@ namespace CookeRpc.AspNetCore.Core
 
     public record RpcReturnValue : RpcResponse
     {
-        public RpcReturnValue(string id, Optional<object?> value) : base(id)
+        public RpcReturnValue(string id, Optional<object?> value)
+            : base(id)
         {
             Value = value;
         }
@@ -40,7 +43,8 @@ namespace CookeRpc.AspNetCore.Core
 
     public record RpcError : RpcResponse
     {
-        public RpcError(string id, string code, string message, Exception? exception) : base(id)
+        public RpcError(string id, string code, string message, Exception? exception)
+            : base(id)
         {
             Code = code;
             Message = message;
@@ -50,7 +54,7 @@ namespace CookeRpc.AspNetCore.Core
         public string Code { get; }
 
         public string Message { get; }
-        
+
         public Exception? Exception { get; }
     }
 }

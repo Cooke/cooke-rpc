@@ -26,7 +26,7 @@ namespace CookeRpc.AspNetCore
         public string Path { get; init; } = "/rpc";
 
         public RpcModel Model { get; }
-        
+
         public JsonSerializerOptions JsonSerializerOptions { get; }
     }
 
@@ -42,7 +42,10 @@ namespace CookeRpc.AspNetCore
             _next = next;
             _options = options;
             _rpcSerializer = new JsonRpcSerializer(options.JsonSerializerOptions);
-            _services = options.Model.Services.ToDictionary(x => x.Name, x => x.Procedures.ToDictionary(y => y.Name));
+            _services = options.Model.Services.ToDictionary(
+                x => x.Name,
+                x => x.Procedures.ToDictionary(y => y.Name)
+            );
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -66,7 +69,10 @@ namespace CookeRpc.AspNetCore
             do
             {
                 readResult = await context.Request.BodyReader.ReadAsync(context.RequestAborted);
-                context.Request.BodyReader.AdvanceTo(readResult.Buffer.Start, readResult.Buffer.End);
+                context.Request.BodyReader.AdvanceTo(
+                    readResult.Buffer.Start,
+                    readResult.Buffer.End
+                );
             } while (!readResult.IsCanceled && !readResult.IsCompleted);
 
             RpcInvocation invocation;
@@ -76,22 +82,29 @@ namespace CookeRpc.AspNetCore
             }
             catch (Exception)
             {
-                context.Response.StatusCode = (int) HttpStatusCode.BadRequest;
+                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 return;
             }
 
-            var rpcContext = new HttpRpcContext(context.RequestServices, context.RequestAborted, context.User,
-                new(
-                    new Dictionary<object, object?> {{Constants.HttpContextKey, context}}), invocation, context);
+            var rpcContext = new HttpRpcContext(
+                context.RequestServices,
+                context.RequestAborted,
+                context.User,
+                new(new Dictionary<object, object?> { { Constants.HttpContextKey, context } }),
+                invocation,
+                context
+            );
 
-            using var _ = logger.BeginScope(new Dictionary<string, object?>
-            {
-                {"InvocationId", invocation.Id},
-                {"Service", invocation.Service},
-                {"Procedure", invocation.Procedure},
-                {"IdentityName", rpcContext.User.Identity?.Name}
-            });
-            
+            using var _ = logger.BeginScope(
+                new Dictionary<string, object?>
+                {
+                    { "InvocationId", invocation.Id },
+                    { "Service", invocation.Service },
+                    { "Procedure", invocation.Procedure },
+                    { "IdentityName", rpcContext.User.Identity?.Name }
+                }
+            );
+
             RpcResponse? response = null;
             try
             {
@@ -103,22 +116,36 @@ namespace CookeRpc.AspNetCore
                 switch (response)
                 {
                     case RpcError rpcError:
-                        logger.Log(LogLevel.Error, rpcError.Exception,
+                        logger.Log(
+                            LogLevel.Error,
+                            rpcError.Exception,
                             "RPC error ({RpcDuration} ms) {Service}.{Method}: {ErrorCode} ({ErrorMessage})",
-                            stopwatch.ElapsedMilliseconds, rpcContext.Invocation.Service,
-                            rpcContext.Invocation.Procedure, rpcError.Code, rpcError.Message);
+                            stopwatch.ElapsedMilliseconds,
+                            rpcContext.Invocation.Service,
+                            rpcContext.Invocation.Procedure,
+                            rpcError.Code,
+                            rpcError.Message
+                        );
                         break;
 
                     case RpcReturnValue:
-                        logger.Log(LogLevel.Information, "RPC success ({RpcDuration} ms) {Service}.{Method}",
-                            stopwatch.ElapsedMilliseconds, rpcContext.Invocation.Service,
-                            rpcContext.Invocation.Procedure);
+                        logger.Log(
+                            LogLevel.Information,
+                            "RPC success ({RpcDuration} ms) {Service}.{Method}",
+                            stopwatch.ElapsedMilliseconds,
+                            rpcContext.Invocation.Service,
+                            rpcContext.Invocation.Procedure
+                        );
                         break;
                 }
             }
         }
 
-        private async Task<RpcResponse> Dispatch(RpcContext rpcContext, HttpContext httpContext, RpcInvocation invocation)
+        private async Task<RpcResponse> Dispatch(
+            RpcContext rpcContext,
+            HttpContext httpContext,
+            RpcInvocation invocation
+        )
         {
             if (string.IsNullOrWhiteSpace(invocation.Procedure))
             {
@@ -127,21 +154,31 @@ namespace CookeRpc.AspNetCore
 
             if (!_services.TryGetValue(invocation.Service, out var procedures))
             {
-                return Error(Constants.ErrorCodes.ProcedureNotFound, "No service with the give name");
+                return Error(
+                    Constants.ErrorCodes.ProcedureNotFound,
+                    "No service with the give name"
+                );
             }
 
             if (!procedures.TryGetValue(invocation.Procedure, out var procedure))
             {
-                return Error(Constants.ErrorCodes.ProcedureNotFound, "No procedure with the give name");
+                return Error(
+                    Constants.ErrorCodes.ProcedureNotFound,
+                    "No procedure with the give name"
+                );
             }
 
             try
             {
                 var response = await procedure.Delegate.Invoke(rpcContext);
-                
+
                 await httpContext.Request.BodyReader.CompleteAsync();
 
-                _rpcSerializer.Serialize(response, httpContext.Response.BodyWriter, procedure.ReturnType.ClrType);
+                _rpcSerializer.Serialize(
+                    response,
+                    httpContext.Response.BodyWriter,
+                    procedure.ReturnType.ClrType
+                );
 
                 return response;
             }
@@ -149,7 +186,6 @@ namespace CookeRpc.AspNetCore
             {
                 return Error(Constants.ErrorCodes.ServerError, "Unknown server error", e);
             }
-            
 
             RpcResponse Error(string code, string message, Exception? exception = null)
             {

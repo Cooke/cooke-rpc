@@ -23,7 +23,9 @@ namespace CookeRpc.AspNetCore
 
         public static IApplicationBuilder UseRpc(this IApplicationBuilder app, string path = "/rpc")
         {
-            var model = new RpcModelBuilder(new RpcModelBuilderOptions { ContextType = typeof(HttpRpcContext) });
+            var model = new RpcModelBuilder(
+                new RpcModelBuilderOptions { ContextType = typeof(HttpRpcContext) }
+            );
             model.AddRpcServicesByAttribute();
             return UseRpc(app, model.Build(), path);
         }
@@ -38,21 +40,30 @@ namespace CookeRpc.AspNetCore
             return model.MapType(typeof(T));
         }
 
-        public static RpcModelBuilder AddRpcServicesByAttribute<TAttribute>(this RpcModelBuilder model)
+        public static RpcModelBuilder AddRpcServicesByAttribute<TAttribute>(
+            this RpcModelBuilder model
+        )
             where TAttribute : Attribute
         {
-            var controllerTypes = Assembly.GetCallingAssembly().GetTypes()
+            var controllerTypes = Assembly
+                .GetCallingAssembly()
+                .GetTypes()
                 .Concat(Assembly.GetEntryAssembly()?.GetTypes() ?? ArraySegment<Type>.Empty)
                 .Where(x => x.GetCustomAttribute<TAttribute>() != null);
 
-            foreach (var controllerType in controllerTypes) {
+            foreach (var controllerType in controllerTypes)
+            {
                 model.AddService(controllerType);
             }
 
             return model;
         }
 
-        public static IApplicationBuilder UseRpc(this IApplicationBuilder app, RpcModel model, string path = "/rpc")
+        public static IApplicationBuilder UseRpc(
+            this IApplicationBuilder app,
+            RpcModel model,
+            string path = "/rpc"
+        )
         {
             var serializerOptions = new JsonSerializerOptions
             {
@@ -68,29 +79,36 @@ namespace CookeRpc.AspNetCore
                 {
                     Modifiers =
                     {
-                        info => JsonTypeInfoModifiers.RpcPolymorphismJsonTypeInfoModifier(model, info)
+                        info =>
+                            JsonTypeInfoModifiers.RpcPolymorphismJsonTypeInfoModifier(model, info)
                     }
                 }
             };
             return UseRpc(app, model, serializerOptions, path);
         }
 
-        public static IApplicationBuilder UseRpc(this IApplicationBuilder app,
+        public static IApplicationBuilder UseRpc(
+            this IApplicationBuilder app,
             RpcModel model,
             JsonSerializerOptions serializerOptions,
-            string path = "/rpc")
+            string path = "/rpc"
+        )
         {
             UseRpcIntrospection(app, model, path + "/introspection");
             return app.UseMiddleware<RpcHttpMiddleware>(
-                new RpcHttpMiddlewareOptions(model, serializerOptions) { Path = path });
+                new RpcHttpMiddlewareOptions(model, serializerOptions) { Path = path }
+            );
         }
 
-        public static void UseRpcIntrospection(this IApplicationBuilder app,
+        public static void UseRpcIntrospection(
+            this IApplicationBuilder app,
             RpcModel model,
-            string path = "/rpc/introspection")
+            string path = "/rpc/introspection"
+        )
         {
             app.UseMiddleware<RpcIntrospectionHttpMiddleware>(
-                new RpcIntrospectionHttpMiddlewareOptions(model) { Path = path });
+                new RpcIntrospectionHttpMiddlewareOptions(model) { Path = path }
+            );
         }
     }
 }

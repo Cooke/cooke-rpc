@@ -10,11 +10,13 @@ namespace CookeRpc.AspNetCore.Model
     {
         private readonly Lazy<RpcDelegate> _lazyDelegate;
 
-        public RpcProcedureModel(string name,
+        public RpcProcedureModel(
+            string name,
             Lazy<RpcDelegate> lazyDelegate,
             IRpcType returnType,
             IReadOnlyCollection<RpcParameterModel> parameters,
-            IReadOnlyCollection<object> attributes)
+            IReadOnlyCollection<object> attributes
+        )
         {
             _lazyDelegate = lazyDelegate;
             Name = name;
@@ -30,16 +32,18 @@ namespace CookeRpc.AspNetCore.Model
         public IRpcType ReturnType { get; }
 
         public IReadOnlyCollection<RpcParameterModel> Parameters { get; init; }
-        
+
         public IReadOnlyCollection<object> Attributes { get; }
     }
 
     public class RpcServiceModel
     {
-        public RpcServiceModel(Type rpcControllerType,
+        public RpcServiceModel(
+            Type rpcControllerType,
             string name,
             IReadOnlyCollection<RpcProcedureModel> procedures,
-            IReadOnlyCollection<object> attributes)
+            IReadOnlyCollection<object> attributes
+        )
         {
             RpcControllerType = rpcControllerType;
             Name = name;
@@ -48,11 +52,11 @@ namespace CookeRpc.AspNetCore.Model
         }
 
         public Type RpcControllerType { get; }
-        
+
         public string Name { get; }
-        
+
         public IReadOnlyCollection<RpcProcedureModel> Procedures { get; }
-        
+
         public IReadOnlyCollection<object> Attributes { get; }
     }
 }

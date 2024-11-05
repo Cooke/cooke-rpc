@@ -13,6 +13,7 @@ namespace CookeRpc.AspNetCore.Model.Types
             Types = types;
             ClrType = clrType;
         }
+
         public Type ClrType { get; }
     }
 }

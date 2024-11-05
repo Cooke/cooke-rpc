@@ -14,6 +14,7 @@ namespace CookeRpc.AspNetCore.Model.TypeDefinitions
             ClrType = clrType;
             Members = members;
         }
+
         public string Name { get; }
     }
 }

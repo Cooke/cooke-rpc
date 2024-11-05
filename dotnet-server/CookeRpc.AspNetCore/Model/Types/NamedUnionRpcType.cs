@@ -12,10 +12,11 @@ namespace CookeRpc.AspNetCore.Model.Types
             Types = types;
             ClrType = clrType;
         }
+
         public Type ClrType { get; }
-        
+
         public string Name { get; }
-        
+
         public IReadOnlyCollection<IRpcType> Types { get; }
     }
 }

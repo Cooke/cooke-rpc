@@ -48,35 +48,48 @@ namespace CookeRpc.AspNetCore.Model
         private static bool IsReflectionType(Type type) =>
             type == typeof(Type) || type.Namespace?.StartsWith("System.Reflection") == true;
 
-        public Func<MemberInfo, string> MemberNameFormatter { get; init; } = memberInfo =>
-            Char.ToLower(memberInfo.Name[0]) + memberInfo.Name.Substring(1);
+        public Func<MemberInfo, string> MemberNameFormatter { get; init; } =
+            memberInfo => Char.ToLower(memberInfo.Name[0]) + memberInfo.Name.Substring(1);
 
-        public Func<Type, string> TypeNameFormatter { get; init; } = type =>
-            type.GetCustomAttribute<RpcTypeAttribute>()?.Name ?? Regex.Replace(
-                (type.IsInterface && type.Name.StartsWith("I") ? type.Name.Substring(1) : type.Name), "`[0-9]+", "");
+        public Func<Type, string> TypeNameFormatter { get; init; } =
+            type =>
+                type.GetCustomAttribute<RpcTypeAttribute>()?.Name
+                ?? Regex.Replace(
+                    (
+                        type.IsInterface && type.Name.StartsWith("I")
+                            ? type.Name.Substring(1)
+                            : type.Name
+                    ),
+                    "`[0-9]+",
+                    ""
+                );
 
-        public BindingFlags MemberBindingFilter { get; init; } = BindingFlags.Public | BindingFlags.Instance;
+        public BindingFlags MemberBindingFilter { get; init; } =
+            BindingFlags.Public | BindingFlags.Instance;
 
-        public Func<MemberInfo, bool> MemberFilter { get; init; } = info =>
-        {
-            return info switch
+        public Func<MemberInfo, bool> MemberFilter { get; init; } =
+            info =>
             {
-                _ when info.GetCustomAttribute<IgnoreDataMemberAttribute>() != null => false,
-                FieldInfo fi => !IsReflectionType(fi.FieldType),
-                PropertyInfo pi => !IsReflectionType(pi.PropertyType),
-                _ => false
+                return info switch
+                {
+                    _ when info.GetCustomAttribute<IgnoreDataMemberAttribute>() != null => false,
+                    FieldInfo fi => !IsReflectionType(fi.FieldType),
+                    PropertyInfo pi => !IsReflectionType(pi.PropertyType),
+                    _ => false
+                };
             };
-        };
 
         public Func<string, string> EnumMemberNameFormatter { get; init; } = name => name;
 
         public Func<Type, string> ServiceNameFormatter { get; init; } = type => type.Name;
 
-        public IReadOnlyDictionary<Type, IRpcType> MapResolutions { get; init; } = DefaultMapResolutions;
+        public IReadOnlyDictionary<Type, IRpcType> MapResolutions { get; init; } =
+            DefaultMapResolutions;
 
         public Type ContextType { get; init; } = typeof(RpcContext);
 
-        public Func<ParameterInfo, ParameterResolver?>? CustomParameterResolver { get; init; } = null;
+        public Func<ParameterInfo, ParameterResolver?>? CustomParameterResolver { get; init; } =
+            null;
 
         public Func<MemberInfo, string> ProcedureNameFormatter { get; init; } = x => x.Name;
 

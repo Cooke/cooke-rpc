@@ -9,11 +9,13 @@ namespace CookeRpc.AspNetCore.Core
 {
     public class RpcContext
     {
-        public RpcContext(IServiceProvider serviceProvider,
+        public RpcContext(
+            IServiceProvider serviceProvider,
             CancellationToken cancellationToken,
             ClaimsPrincipal user,
             IReadOnlyDictionary<object, object?> items,
-            RpcInvocation invocation)
+            RpcInvocation invocation
+        )
         {
             ServiceProvider = serviceProvider;
             CancellationToken = cancellationToken;
@@ -37,12 +39,15 @@ namespace CookeRpc.AspNetCore.Core
     {
         public HttpContext HttpContext { get; }
 
-        public HttpRpcContext(IServiceProvider serviceProvider,
+        public HttpRpcContext(
+            IServiceProvider serviceProvider,
             CancellationToken cancellationToken,
             ClaimsPrincipal user,
             ReadOnlyDictionary<object, object?> items,
             RpcInvocation invocation,
-            HttpContext httpContext) : base(serviceProvider, cancellationToken, user, items, invocation)
+            HttpContext httpContext
+        )
+            : base(serviceProvider, cancellationToken, user, items, invocation)
         {
             HttpContext = httpContext;
         }
