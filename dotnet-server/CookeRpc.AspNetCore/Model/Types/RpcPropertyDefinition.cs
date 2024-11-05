@@ -1,9 +1,8 @@
 ﻿using System.Reflection;
 
-namespace CookeRpc.AspNetCore.Model.TypeDefinitions
+namespace CookeRpc.AspNetCore.Model.Types;
+
+public record RpcPropertyDefinition(string Name, IRpcType Type, MemberInfo ClrMemberInfo)
 {
-    public record RpcPropertyDefinition(string Name, IRpcType Type, MemberInfo ClrMemberInfo)
-    {
-        public bool IsOptional { get; init; }
-    }
+    public bool IsOptional { get; init; }
 }

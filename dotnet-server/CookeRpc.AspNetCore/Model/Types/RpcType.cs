@@ -1,9 +1,8 @@
 ﻿using System;
 
-namespace CookeRpc.AspNetCore.Model.TypeDefinitions
+namespace CookeRpc.AspNetCore.Model.Types;
+
+public interface IRpcType
 {
-    public interface IRpcType
-    {
-        Type ClrType { get; }
-    }
+    Type ClrType { get; }
 }

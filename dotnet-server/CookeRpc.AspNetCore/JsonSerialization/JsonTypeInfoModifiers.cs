@@ -1,7 +1,7 @@
 using System.Linq;
 using System.Text.Json.Serialization.Metadata;
 using CookeRpc.AspNetCore.Model;
-using CookeRpc.AspNetCore.Model.TypeDefinitions;
+using CookeRpc.AspNetCore.Model.Types;
 
 namespace CookeRpc.AspNetCore.JsonSerialization;
 

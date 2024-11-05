@@ -1,7 +1,6 @@
-namespace CookeRpc.AspNetCore.Model.TypeDefinitions
+namespace CookeRpc.AspNetCore.Model.Types;
+
+public interface INamedRpcType : IRpcType
 {
-    public interface INamedRpcType : IRpcType
-    {
-        public string Name { get; }
-    }
+    public string Name { get; }
 }

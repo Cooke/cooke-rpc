@@ -1,10 +1,9 @@
 ﻿using System.Collections.Generic;
-using CookeRpc.AspNetCore.Model.TypeDefinitions;
+using CookeRpc.AspNetCore.Model.Types;
 
-namespace CookeRpc.AspNetCore.Model
-{
-    public record RpcModel(
-        IReadOnlyCollection<INamedRpcType> Types,
-        IReadOnlyCollection<RpcServiceModel> Services
-    );
-}
+namespace CookeRpc.AspNetCore.Model;
+
+public record RpcModel(
+    IReadOnlyCollection<INamedRpcType> Types,
+    IReadOnlyCollection<RpcServiceModel> Services
+);

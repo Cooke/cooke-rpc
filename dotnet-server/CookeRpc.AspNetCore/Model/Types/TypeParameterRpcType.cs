@@ -1,6 +1,5 @@
 using System;
 
-namespace CookeRpc.AspNetCore.Model.TypeDefinitions
-{
-    public record TypeParameterRpcType(string Name, Type ClrType) : INamedRpcType;
-}
+namespace CookeRpc.AspNetCore.Model.Types;
+
+public record TypeParameterRpcType(string Name, Type ClrType) : INamedRpcType;
