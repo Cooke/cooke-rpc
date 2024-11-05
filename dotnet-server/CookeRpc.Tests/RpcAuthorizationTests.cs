@@ -65,7 +65,7 @@ namespace CookeRpc.Tests
                 new object[] {new {Id = "123", Service = "TestController", Proc = "Secure"}});
             response.EnsureSuccessStatusCode();
 
-            Assert.Equal("[{\"id\":\"123\",\"errorCode\":\"authorization_error\",\"errorMessage\":\"Not authorized\"}]",
+            Assert.Equal("[{\"id\":\"123\",\"errorCode\":\"authentication_required\",\"errorMessage\":\"Authentication required\"}]",
                 await response.Content.ReadAsStringAsync());
         }
         

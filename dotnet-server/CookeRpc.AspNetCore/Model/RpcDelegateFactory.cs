@@ -225,9 +225,11 @@ namespace CookeRpc.AspNetCore.Model
                 
                 if (authResult.Failure != null)
                 {
-                    var errorCode = context.User.Identity.IsAuthenticated ? Constants.ErrorCodes.AuthorizationError : Constants.ErrorCodes.AuthorizationError;
+                    var errorCode = context.User.Identity?.IsAuthenticated == true ? 
+                        Constants.ErrorCodes.NotAuthorized : 
+                        Constants.ErrorCodes.AuthenticationRequired;
                     return new RpcError(context.Invocation.Id, errorCode,
-                        authResult.Failure.FailureReasons.Any() ? string.Join(", ", authResult.Failure.FailureReasons.Select(x => x.Message)) : "Not authorized", null);
+                        authResult.Failure.FailureReasons.Any() ? string.Join(", ", authResult.Failure.FailureReasons.Select(x => x.Message)) : errorCode == Constants.ErrorCodes.AuthenticationRequired ? "Authentication required" : "Not authorized", null);
                 }
 
                 return await next(context);
@@ -250,8 +252,8 @@ namespace CookeRpc.AspNetCore.Model
 
         public static class ErrorCodes
         {
-            public const string NoAuthenticated = "not_authenticated";
-            public const string AuthorizationError = "authorization_error";
+            public const string AuthenticationRequired = "authentication_required";
+            public const string NotAuthorized = "authorization_error";
             public const string ProcedureNotFound = "procedure_not_found";
             public const string BadRequest = "bad_request";
             public const string ServerError = "server_error";
