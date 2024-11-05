@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Xunit;
 using Xunit.Abstractions;
@@ -30,7 +31,12 @@ namespace CookeRpc.Tests
 
             _host = Host.CreateDefaultBuilder().ConfigureWebHostDefaults(webBuilder =>
             {
-                webBuilder.ConfigureServices(services => services.AddRpc());
+                webBuilder.ConfigureServices(services =>
+                {
+                    services.AddAuthorization(o => 
+                        o.AddPolicy("Fail", p => p.AddRequirements(new FailRequirement())));
+                    services.AddRpc();
+                });
                 webBuilder.Configure(app =>
                 {
                     app.Use((context, next) =>
@@ -60,6 +66,19 @@ namespace CookeRpc.Tests
             response.EnsureSuccessStatusCode();
 
             Assert.Equal("[{\"id\":\"123\",\"errorCode\":\"authorization_error\",\"errorMessage\":\"Not authorized\"}]",
+                await response.Content.ReadAsStringAsync());
+        }
+        
+        [Fact]
+        public async Task Invoke_Authorize_Fail_Shall_Fail_With_Custom_Message()
+        {
+            var client = _host.GetTestClient();
+            client.DefaultRequestHeaders.Add("authorization", "true");
+            var response = await client.PostAsJsonAsync("/rpc",
+                new object[] {new {Id = "123", Service = "TestController", Proc = "AuthorizeFail"}});
+            response.EnsureSuccessStatusCode();
+
+            Assert.Equal("[{\"id\":\"123\",\"errorCode\":\"authorization_error\",\"errorMessage\":\"Failed Message\"}]",
                 await response.Content.ReadAsStringAsync());
         }
 
@@ -93,6 +112,11 @@ namespace CookeRpc.Tests
             public void Secure()
             {
             }
+            
+            [Authorize("Fail")]
+            public void AuthorizeFail()
+            {
+            }
 
             [AllowAnonymous]
             public void Anonymous()
@@ -103,6 +127,16 @@ namespace CookeRpc.Tests
         public void Dispose()
         {
             _host?.Dispose();
+        }
+        
+        
+    }
+
+    public class FailRequirement : AuthorizationHandler<FailRequirement>, IAuthorizationRequirement{
+        protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, FailRequirement requirement)
+        {
+            context.Fail(new AuthorizationFailureReason(this, "Failed Message"));
+            return Task.CompletedTask;
         }
     }
 }

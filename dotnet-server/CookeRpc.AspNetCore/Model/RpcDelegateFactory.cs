@@ -221,26 +221,26 @@ namespace CookeRpc.AspNetCore.Model
 
             return async context =>
             {
-                var authorized = await IsAuthorized(context, authData);
-                ;
-                if (!authorized) {
-                    return new RpcError(context.Invocation.Id, Constants.ErrorCodes.AuthorizationError,
-                        "Not authorized", null);
+                var authResult = await IsAuthorized(context, authData);
+                
+                if (authResult.Failure != null)
+                {
+                    var errorCode = context.User.Identity.IsAuthenticated ? Constants.ErrorCodes.AuthorizationError : Constants.ErrorCodes.AuthorizationError;
+                    return new RpcError(context.Invocation.Id, errorCode,
+                        authResult.Failure.FailureReasons.Any() ? string.Join(", ", authResult.Failure.FailureReasons.Select(x => x.Message)) : "Not authorized", null);
                 }
 
                 return await next(context);
             };
         }
 
-        private static async Task<bool> IsAuthorized(RpcContext context, IEnumerable<IAuthorizeData> authData)
+        private static async Task<AuthorizationResult> IsAuthorized(RpcContext context, IEnumerable<IAuthorizeData> authData)
         {
             var authorizationService = context.ServiceProvider.GetRequiredService<IAuthorizationService>();
             var policyProvider = context.ServiceProvider.GetRequiredService<IAuthorizationPolicyProvider>();
             var policy = await AuthorizationPolicy.CombineAsync(policyProvider, authData);
-            var authResult =
-                await authorizationService.AuthorizeAsync(context.User,
-                    policy ?? throw new InvalidOperationException());
-            return authResult.Succeeded;
+            return await authorizationService.AuthorizeAsync(context.User,
+                policy ?? throw new InvalidOperationException());
         }
     }
 
@@ -250,6 +250,7 @@ namespace CookeRpc.AspNetCore.Model
 
         public static class ErrorCodes
         {
+            public const string NoAuthenticated = "not_authenticated";
             public const string AuthorizationError = "authorization_error";
             public const string ProcedureNotFound = "procedure_not_found";
             public const string BadRequest = "bad_request";
