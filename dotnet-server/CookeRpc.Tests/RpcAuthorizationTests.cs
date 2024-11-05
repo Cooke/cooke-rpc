@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Json;
@@ -80,7 +81,7 @@ namespace CookeRpc.Tests
                     }
                 }
             );
-            response.EnsureSuccessStatusCode();
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
             Assert.Equal(
                 "[{\"id\":\"123\",\"errorCode\":\"authentication_required\",\"errorMessage\":\"Authentication required\"}]",
@@ -105,7 +106,7 @@ namespace CookeRpc.Tests
                     }
                 }
             );
-            response.EnsureSuccessStatusCode();
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
 
             Assert.Equal(
                 "[{\"id\":\"123\",\"errorCode\":\"authorization_error\",\"errorMessage\":\"Failed Message\"}]",

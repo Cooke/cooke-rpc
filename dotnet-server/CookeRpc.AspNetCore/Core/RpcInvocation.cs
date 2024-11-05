@@ -30,16 +30,8 @@ namespace CookeRpc.AspNetCore.Core
 
     public abstract record RpcResponse(string Id);
 
-    public record RpcReturnValue : RpcResponse
-    {
-        public RpcReturnValue(string id, Optional<object?> value)
-            : base(id)
-        {
-            Value = value;
-        }
-
-        public Optional<object?> Value { get; }
-    }
+    public record RpcReturnValue(string Id, Optional<object?> Value, Type DeclaredType)
+        : RpcResponse(Id);
 
     public record RpcError : RpcResponse
     {

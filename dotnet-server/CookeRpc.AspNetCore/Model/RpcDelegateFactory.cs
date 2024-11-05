@@ -240,12 +240,17 @@ namespace CookeRpc.AspNetCore.Model
                     var returnValue = await execute(context, callArguments);
                     if (returnType == typeof(void))
                     {
-                        return new RpcReturnValue(context.Invocation.Id, new Optional<object?>());
+                        return new RpcReturnValue(
+                            context.Invocation.Id,
+                            new Optional<object?>(),
+                            returnType
+                        );
                     }
 
                     return new RpcReturnValue(
                         context.Invocation.Id,
-                        new Optional<object?>(returnValue)
+                        new Optional<object?>(returnValue),
+                        returnType
                     );
                 };
 

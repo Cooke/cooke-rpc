@@ -73,7 +73,7 @@ namespace CookeRpc.AspNetCore
                     readResult.Buffer.Start,
                     readResult.Buffer.End
                 );
-            } while (!readResult.IsCanceled && !readResult.IsCompleted);
+            } while (readResult is { IsCanceled: false, IsCompleted: false });
 
             RpcInvocation invocation;
             try
@@ -108,7 +108,33 @@ namespace CookeRpc.AspNetCore
             RpcResponse? response = null;
             try
             {
-                response = await Dispatch(rpcContext, context, invocation);
+                response = await Dispatch(rpcContext, invocation);
+
+                switch (response)
+                {
+                    case RpcError rpcError:
+                        switch (rpcError.Code)
+                        {
+                            case Constants.ErrorCodes.AuthenticationRequired:
+                                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                                break;
+                            case Constants.ErrorCodes.NotAuthorized:
+                                context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                                break;
+                            case Constants.ErrorCodes.ServerError:
+                                context.Response.StatusCode = (int)
+                                    HttpStatusCode.InternalServerError;
+                                break;
+                            default:
+                                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                break;
+                        }
+                        break;
+                }
+
+                await context.Request.BodyReader.CompleteAsync();
+
+                _rpcSerializer.Serialize(response, context.Response.BodyWriter);
             }
             finally
             {
@@ -141,11 +167,7 @@ namespace CookeRpc.AspNetCore
             }
         }
 
-        private async Task<RpcResponse> Dispatch(
-            RpcContext rpcContext,
-            HttpContext httpContext,
-            RpcInvocation invocation
-        )
+        private async Task<RpcResponse> Dispatch(RpcContext rpcContext, RpcInvocation invocation)
         {
             if (string.IsNullOrWhiteSpace(invocation.Procedure))
             {
@@ -170,17 +192,7 @@ namespace CookeRpc.AspNetCore
 
             try
             {
-                var response = await procedure.Delegate.Invoke(rpcContext);
-
-                await httpContext.Request.BodyReader.CompleteAsync();
-
-                _rpcSerializer.Serialize(
-                    response,
-                    httpContext.Response.BodyWriter,
-                    procedure.ReturnType.ClrType
-                );
-
-                return response;
+                return await procedure.Delegate.Invoke(rpcContext);
             }
             catch (Exception e)
             {

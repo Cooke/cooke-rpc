@@ -70,11 +70,7 @@ namespace CookeRpc.AspNetCore.JsonSerialization
             return JsonSerializer.Deserialize(ref reader, type, _payloadSerializerOptions);
         }
 
-        public void Serialize(
-            RpcResponse response,
-            IBufferWriter<byte> bufferWriter,
-            Type returnType
-        )
+        public void Serialize(RpcResponse response, IBufferWriter<byte> bufferWriter)
         {
             using var writer = new Utf8JsonWriter(bufferWriter);
             writer.WriteStartArray();
@@ -100,7 +96,11 @@ namespace CookeRpc.AspNetCore.JsonSerialization
                     {
                         writer.Flush();
                         bufferWriter.Write(new[] { (byte)',' });
-                        SerializeReturnValue(bufferWriter, rpcReturnValue.Value.Value, returnType);
+                        SerializeReturnValue(
+                            bufferWriter,
+                            rpcReturnValue.Value.Value,
+                            rpcReturnValue.DeclaredType
+                        );
                     }
 
                     break;
