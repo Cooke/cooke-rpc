@@ -396,7 +396,7 @@ public static class Constants
     public static class ErrorCodes
     {
         public const string AuthenticationRequired = "authentication_required";
-        public const string NotAuthorized = "authorization_error";
+        public const string NotAuthorized = "not_authorized";
         public const string ProcedureNotFound = "procedure_not_found";
         public const string BadRequest = "bad_request";
         public const string ServerError = "server_error";

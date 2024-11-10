@@ -109,7 +109,7 @@ public class RpcAuthorizationTests : IDisposable
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
 
         Assert.Equal(
-            "[{\"id\":\"123\",\"errorCode\":\"authorization_error\",\"errorMessage\":\"Failed Message\"}]",
+            "[{\"id\":\"123\",\"errorCode\":\"not_authorized\",\"errorMessage\":\"Failed Message\"}]",
             await response.Content.ReadAsStringAsync()
         );
     }
